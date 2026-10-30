@@ -19,8 +19,14 @@
 #include "FeatureNames.h"
 #include "Globals.h"
 
+/**
+ * 初始化静态特征数量，默认没有特征。
+ */
 size_t FeatureNames::numFeatures = 0;
 
+/**
+ * 构造函数：初始化最小电荷为 100，最大电荷为 -1，所有扩展功能的特征索引为 -1，表示尚未找到对应特征。
+ */
 FeatureNames::FeatureNames() {
   minCharge = 100;
   maxCharge = -1;
@@ -35,6 +41,9 @@ FeatureNames::FeatureNames() {
 FeatureNames::~FeatureNames() {
 }
 
+/**
+ * 初始化特征数量和日志输出。
+ */
 void FeatureNames::initFeatures() {
   setNumFeatures(featureNames.size());
   if (VERB>2) {
@@ -51,6 +60,9 @@ void FeatureNames::initFeatures() {
   }
 }
 
+/**
+ * 所有特征名称用 TAB 连接起来，即 TAB 表头
+ */
 string FeatureNames::getFeatureNames() {
   int n = (int)featureNames.size();
   ostringstream oss;

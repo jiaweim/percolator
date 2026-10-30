@@ -19,6 +19,9 @@
 
 #include <iostream>
 
+/**
+ * PSM 的标签类型，TARGET、DECOY、UNDEFINED、PSEUDO_TARGET⭐
+ */
 enum class LabelType {
   DECOY = -1,
   UNDEFINED = 0,

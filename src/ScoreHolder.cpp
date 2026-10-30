@@ -23,6 +23,13 @@
 #include <iomanip>
 #include <regex>
 
+/**
+ * 通用排序：⭐
+ * 1. score，降序
+ * 2. scan，降序
+ * 3. expMass，降序
+ * 4. label，降序
+ */
 bool operator>(const ScoreHolder& one, const ScoreHolder& other) {
   return (one.score > other.score) ||
          (one.score == other.score && one.pPSM->scan > other.pPSM->scan) ||
@@ -32,6 +39,13 @@ bool operator>(const ScoreHolder& one, const ScoreHolder& other) {
           one.pPSM->expMass == other.pPSM->expMass && one.label > other.label);
 }
 
+/**
+ * 通用排序：⭐
+ * 1. score，升序
+ * 2. scan，升序
+ * 3. expMass，升序
+ * 4. label，升序
+ */
 bool operator<(const ScoreHolder& one, const ScoreHolder& other) {
   return (one.score < other.score) ||
          (one.score == other.score && one.pPSM->scan < other.pPSM->scan) ||
@@ -41,6 +55,9 @@ bool operator<(const ScoreHolder& one, const ScoreHolder& other) {
           one.pPSM->expMass == other.pPSM->expMass && one.label < other.label);
 }
 
+/**
+ * 过滤掉 ASCII 码 <32 的不可打印字符（控制字符），防止它们破坏 XML 输出格式。
+ */
 string getRidOfUnprintablesAndUnicode(string inpString) {
   string outputs = "";
   for (unsigned int jj = 0; jj < inpString.size(); jj++) {
@@ -53,6 +70,9 @@ string getRidOfUnprintablesAndUnicode(string inpString) {
   return outputs;
 }
 
+/**
+ * 
+ */
 void ScoreHolder::printPSM(ostream& os, bool printDecoys, bool printExpMass) {
   if (!isDecoy() || printDecoys) {
     os << "    <psm p:psm_id=\"" << pPSM->getId() << "\"";
@@ -63,16 +83,16 @@ void ScoreHolder::printPSM(ostream& os, bool printDecoys, bool printExpMass) {
         os << " p:decoy=\"false\"";
     }
     os << ">" << endl;
-    os << "      <svm_score>" << fixed << score << "</svm_score>" << endl;
-    os << "      <q_value>" << scientific << q << "</q_value>" << endl;
-    os << "      <pep>" << scientific << pep << "</pep>" << endl;
+    os << "      <svm_score>" << fixed << score << "</svm_score>" << endl; // svm_score，精确到小数点后 6 位
+    os << "      <q_value>" << scientific << q << "</q_value>" << endl; // q_value，科学计数法表示
+    os << "      <pep>" << scientific << pep << "</pep>" << endl; // pep，科学计数法表示
 
     if (printExpMass) {
-      os << "      <exp_mass>" << fixed << std::setprecision(4) << pPSM->expMass
+      os << "      <exp_mass>" << fixed << std::setprecision(4) << pPSM->expMass // exp_mass，精确到小数点后 4 位
          << "</exp_mass>" << endl;
     }
 
-    os << "      <calc_mass>" << fixed << std::setprecision(3) << pPSM->calcMass
+    os << "      <calc_mass>" << fixed << std::setprecision(3) << pPSM->calcMass // calc_mass，精确到小数点后 3 位
        << "</calc_mass>" << endl;
     /* Remove this tag for now */
     /* if (isfinite(pPSM->getRetentionTime())) {
@@ -99,6 +119,10 @@ void ScoreHolder::printPSM(ostream& os, bool printDecoys, bool printExpMass) {
   }
 }
 
+/**
+ * 与 printPSM 类似，但输出的是 peptide 信息.
+ * 
+ */
 void ScoreHolder::printPeptide(ostream& os,
                                bool printDecoys,
                                bool printExpMass,
@@ -144,6 +168,9 @@ void ScoreHolder::printPeptide(ostream& os,
   }
 }
 
+/**
+ * 从 PSM ID 中提取电荷信息
+ */
 std::string ScoreHolder::getCharge(std::string id) {
   /* Aposymb_Proteome_DIA_RAW_A01_Q1.00148.00148.1_2 -> 1_2*/
   std::string last_element(id.substr(id.rfind("_") - 1));
@@ -151,6 +178,9 @@ std::string ScoreHolder::getCharge(std::string id) {
   return last_element.substr(0, last_element.find("_"));
 }
 
+/**
+ * 兼容 TPP 的 pepXML 输出格式，输出 spectrum_query 标签
+ */
 void ScoreHolder::printPepXML(ostream& os,
                               map<char, float>& aaWeight,
                               int index) {

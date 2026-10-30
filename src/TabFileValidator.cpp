@@ -17,9 +17,13 @@
 
 #include "TabFileValidator.h"
 
+/**
+ * TabFileValidator 类用于验证 PIN 文件的格式和内容
+ */
 bool TabFileValidator::isTabFile(std::string fileName) {
   std::ifstream file(fileName.c_str());
   
+  // 1. 打开失败就报错
   if (!file.is_open()) {
     if (VERB > 0) {
       std::cerr << "ERROR: Unable to read " << fileName << ", check if the file exists." << std::endl;
@@ -27,6 +31,7 @@ bool TabFileValidator::isTabFile(std::string fileName) {
     return false;
   }
   
+  // 2. 读第一行，空文件，或者权限问题，就报错
   std::string tmp;
   std::istream &in = std::getline(file, tmp);
   
@@ -37,6 +42,7 @@ bool TabFileValidator::isTabFile(std::string fileName) {
     return false;
   }
   
+  // 3. 检查是否是制表符分隔的文件
   // try to find a '\t', return true if '\t' is found within the string
   bool isTab = std::find(tmp.begin(), tmp.end(), '\t')!= tmp.end();
   if (!isTab && VERB > 0) {
@@ -45,6 +51,9 @@ bool TabFileValidator::isTabFile(std::string fileName) {
   return isTab;
 }
 
+/**
+ * 批量检查多个文件是否都是制表符分隔的文件
+ */
 bool TabFileValidator::isTabFiles(std::vector<std::string> fileNames) {
   for (const string &fileName : fileNames) {
     if (!isTabFile(fileName)) {
@@ -54,6 +63,11 @@ bool TabFileValidator::isTabFiles(std::vector<std::string> fileNames) {
   return true;
 }
 
+/**
+ * 获取 decoy 蛋白质的前缀，只检测第一个文件
+ * 
+ * @param fileNames 文件名列表
+ */
 std::string TabFileValidator::getDecoyPrefix(std::vector<std::string> fileNames) {
   std::string decoyPrefix;
   for (const string &fileName : fileNames) {
@@ -63,6 +77,13 @@ std::string TabFileValidator::getDecoyPrefix(std::vector<std::string> fileNames)
   return decoyPrefix;
 }
 
+/**
+ * 解析 header 行，获取蛋白质列和标签列的索引
+ * 
+ * @param fileName 文件名
+ * @param proteinIndex 蛋白质列的索引（返回值）
+ * @param labelIndex 标签列的索引（返回值）
+ */
 void TabFileValidator::getProteinAndLabelColumnIndices(std::string fileName, int &proteinIndex, int &labelIndex) {
   // open C++ stream to file
   std::ifstream file(fileName.c_str());
@@ -79,12 +100,15 @@ void TabFileValidator::getProteinAndLabelColumnIndices(std::string fileName, int
   int columnIndex = 0;
   while (!reader.error()) {
     std::string optionalHeader = reader.readString();
+
+    // 转为小写字母
     std::transform(
       optionalHeader.begin(),
       optionalHeader.end(),
       optionalHeader.begin(),
       [](unsigned char c){ return std::tolower(c); }
     );
+    // 只要包含 proteins，就认为是蛋白质列；只要包含 label，就认为是标签列
     if (optionalHeader.find("proteins") != std::string::npos) { 
       proteinIndex = columnIndex;
     } else if (optionalHeader.find("label") != std::string::npos){
@@ -94,6 +118,9 @@ void TabFileValidator::getProteinAndLabelColumnIndices(std::string fileName, int
   }
 }
 
+/**
+ * 
+ */
 std::string TabFileValidator::getLongestCommonPrefix(std::vector<std::string> strings) {
   size_t numStrings = strings.size();
   if (numStrings == 0) {

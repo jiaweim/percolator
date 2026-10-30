@@ -25,6 +25,9 @@
 #include "Globals.h"
 #include "TabReader.h"
 
+/**
+ * TabFileValidator 类用于验证 PIN 文件的格式和内容⭐
+ */
 class TabFileValidator {
   public:
     static bool isTabFile(std::string fileName);

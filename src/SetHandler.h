@@ -57,11 +57,9 @@ struct PSMDescriptionPriority {
 */
 typedef std::pair<int, double> ScanId;
 
-/*
-* SetHandler is a class that provides functionality to handle training,
-* testing, Xval data sets, reads/writes from/to a file, prints them.
-*
-*/
+/**
+ * 该类负责处理训练集、测试集和验证集，以及读写 PSM 文件
+ */
 class SetHandler {
  public:
   SetHandler(unsigned int maxPSMs);
@@ -104,9 +102,21 @@ class SetHandler {
   void reset();
 
  protected:
+ /**
+  * 目标采样大小，0 表示不采用
+  */
   size_t maxPSMs_;
+  /**
+   * 通常为 [targetSet, decoySet]
+   */
   std::vector<DataSet*> subsets_;
+  /**
+   * 所有 Dataset 共享的特征内存池，用于管理特征向量的内存
+   */
   FeatureMemoryPool featurePool_;
+  /**
+   * 用于校验 decoy PSM 的蛋白质前缀
+   */
   std::string decoyPrefix_; // Used to determine if a psm is a decoy
   
   unsigned int getSubsetIndexFromLabel(LabelType label);

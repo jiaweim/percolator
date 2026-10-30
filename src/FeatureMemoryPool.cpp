@@ -17,17 +17,27 @@
 
 #include "FeatureMemoryPool.h"
 
+/**
+ * 创建特定特征数量的内存池。
+ * @param numFeatures 特征数量
+ */
 void FeatureMemoryPool::createPool(size_t numFeatures) {
   numFeatures_ = static_cast<unsigned int>(numFeatures);
-  numRowsPerBlock_ = kBlockSize / numFeatures_;
+  numRowsPerBlock_ = kBlockSize / numFeatures_; // 计算每个内存块能容纳多少特征行
   isInitialized_ = true;
 }
 
+/**
+ * 创建一个新的连续内存块。
+ */
 void FeatureMemoryPool::createNewBlock() {
-  double* memStart = new double[numFeatures_ * numRowsPerBlock_]();
+  double* memStart = new double[numFeatures_ * numRowsPerBlock_](); // 创建新的连续内存块
   memStarts_.push_back(memStart);
 }
 
+/**
+ * 销毁内存池并释放全部内存块。
+ */
 void FeatureMemoryPool::destroyPool() {
   for (size_t i = 0; i < memStarts_.size(); ++i) {
     if (memStarts_.at(i) != NULL) {
@@ -38,12 +48,18 @@ void FeatureMemoryPool::destroyPool() {
   isInitialized_ = false;
 }
 
+/**
+ * 根据全局特征行编号 i，计算该特征行的内存地址。
+ */
 double* FeatureMemoryPool::addressFromIdx(unsigned int i) const {
   return memStarts_.at(i / numRowsPerBlock_) + (i % numRowsPerBlock_) * numFeatures_;
 }
 
+/**
+ * 分配一个可使用的特征行，并返回首地址。
+ */
 double* FeatureMemoryPool::allocate() {
-  if (freeRows_.size() == 0) {
+  if (freeRows_.size() == 0) { // 没有空闲特征行，新建特征行。
     if (initializedRows_ >= numRowsPerBlock_ * memStarts_.size()) {
       createNewBlock();
     }
@@ -55,6 +71,9 @@ double* FeatureMemoryPool::allocate() {
   return ret;
 }
 
+/**
+ * 回收一个特征行地址，使以后可以重新分配。
+ */
 void FeatureMemoryPool::deallocate(double* p) {
   freeRows_.push_back(p);
 }

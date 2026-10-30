@@ -39,12 +39,18 @@
 #include "ValidateTabFile.h"
 using namespace std;
 
+/// <summary>
+/// 构造函数：
+/// 指针全部 NULL，
+/// 默认读取 PIN 格式
+/// 默认 3 线程
+/// </summary>
 Caller::Caller()
     : pNorm_(NULL),
       pCheck_(NULL),
       protEstimator_(NULL),
       enzyme_(NULL),
-      tabInput_(true),
+      tabInput_(true), // 默认 PIN 格式
       readStdIn_(false),
       inputFN_(""),
       inputFNs_(),
@@ -66,9 +72,9 @@ Caller::Caller()
       targetDecoyCompetition_(false),
       useMixMax_(false),
       inputSearchType_("auto"),
-      selectionFdr_(0.01),
-      initialSelectionFdr_(0.01),
-      testFdr_(0.01),
+      selectionFdr_(0.01), // FDR 默认 0.01
+      initialSelectionFdr_(0.01), // FDR 默认 0.01
+      testFdr_(0.01), // FDR 默认 0.01
       numIterations_(10),
       maxPSMs_(0u),
       nestedXvalBins_(1u),
@@ -77,7 +83,7 @@ Caller::Caller()
       reportEachIteration_(false),
       quickValidation_(false),
       trainBestPositive_(false),
-      numThreads_(3u), 
+      numThreads_(3u), // 默认 3 线程
       useIrlsPep_(false),
       useInterpolatingPep_(true),
       usePavaPep_(false) {}
@@ -127,6 +133,7 @@ string Caller::greeter() {
 }
 
 bool Caller::parseOptions(int argc, char** argv) {
+  // 把整条命令拼接成一个字符串
   ostringstream callStream;
   callStream << argv[0];
   for (int i = 1; i < argc; i++) {
@@ -135,6 +142,7 @@ bool Caller::parseOptions(int argc, char** argv) {
   callStream << endl;
   call_ = callStream.str();
   call_ = call_.substr(0, call_.length() - 1);  // trim ending carriage return
+
   ostringstream intro, endnote;
   intro << greeter() << "\nUsage:\n";
   intro << "   percolator [other options] pin.tsv\n";
@@ -146,7 +154,7 @@ bool Caller::parseOptions(int argc, char** argv) {
            "proteinIdM\n";
   intro << "  Labels are interpreted as 1 -- positive set and test set, -1 -- "
            "negative set.\n";
-  // init
+  // 声明所有命令选项
   CommandLineParser cmd(intro.str());
   // available lower case letters:
   // available upper case letters:
@@ -401,6 +409,7 @@ bool Caller::parseOptions(int argc, char** argv) {
         "Calculate PEPs using PAVA isotonic regression.",
         "", TRUE_IF_SET);
 
+  // 解析命令行
   // finally parse and handle return codes (display help etc...)
   cmd.parseArgs(argc, argv);
 
@@ -408,6 +417,7 @@ bool Caller::parseOptions(int argc, char** argv) {
     outputRT_ = true;
   }
 
+  // 支持参数文件：先从命令行解析，若指定参数文件，再从中读取参数
   if (cmd.isOptionSet("parameter-file")) {
     cmd.parseArgsParamFile(cmd.options["parameter-file"]);
   }
@@ -437,6 +447,7 @@ bool Caller::parseOptions(int argc, char** argv) {
     checkIsWritable(decoyPsmResultFN_);
   }
 
+  // 只报告 PSM-level 结果，跳过肽段处理步骤
   if (cmd.isOptionSet("only-psms")) {
     reportUniquePeptides_ = false;
 
@@ -597,6 +608,7 @@ bool Caller::parseOptions(int argc, char** argv) {
         cmd.options["protein-name-separator"]);
   }
 
+  // 使用 min-max 还是 tdc 计算 q-value 和 PEP
   if (cmd.isOptionSet("post-processing-mix-max")) {
     if (cmd.isOptionSet("post-processing-tdc")) {
       std::cerr << "Error: the -Y/--post-processing-tdc and "
@@ -608,6 +620,10 @@ bool Caller::parseOptions(int argc, char** argv) {
   } else if (cmd.isOptionSet("post-processing-tdc")) {
     targetDecoyCompetition_ = true;
   }
+
+  // 搜库类型， auto、concatenated、separate
+  // concatenated 搜库只能采用 tdc 计算 q-value 和 PEP
+  // separate 默认用 mix-max
   if (cmd.isOptionSet("search-input")) {
     inputSearchType_ = cmd.options["search-input"];
     if (inputSearchType_ == "concatenated") {
@@ -632,13 +648,15 @@ bool Caller::parseOptions(int argc, char** argv) {
     }
   }
 
+  // 使用提供的初始 weights 作为静态模型，必须同时指定 --init-weights 选项
+  // 不训练，直接使用给定的权重。
   // If a static model is used, no nested CV is needed for Cpos and Cneg.
   // Also, their values don't matter.
   if (cmd.isOptionSet("static")) {
-    numIterations_ = 0;
-    selectedCpos_ = 0.5;
+    numIterations_ = 0; // 不训练
+    selectedCpos_ = 0.5; // C 值无意义
     selectedCneg_ = 0.5;
-    skipNormalizeScores_ = true;
+    skipNormalizeScores_ = true; // 跳过归一化
     Normalizer::setType(Normalizer::NONORM);
     if (!cmd.isOptionSet("init-weights")) {
       std::cerr << "Error: the --static option requires the --init-weights "
@@ -652,6 +670,7 @@ bool Caller::parseOptions(int argc, char** argv) {
   if (cmd.isOptionSet("nested-xval-bins")) {
     nestedXvalBins_ = cmd.getUInt("nested-xval-bins", 1, 1000);
   }
+
   // if there are no arguments left...
   if (cmd.arguments.size() == 0) {
     if (!cmd.isOptionSet("tab-in") &&
@@ -663,6 +682,7 @@ bool Caller::parseOptions(int argc, char** argv) {
     }
   }
 
+  // 最后的 PIN 文件
   // if there is at least one argument left...
   if (cmd.arguments.size() >= 1) {
     tabInput_ = true;
@@ -683,6 +703,7 @@ bool Caller::parseOptions(int argc, char** argv) {
   if (cmd.isOptionSet("protein-decoy-pattern"))
     protEstimatorDecoyPrefix_ = cmd.options["protein-decoy-pattern"];
 
+  // 蛋白质推断选项
   if (cmd.isOptionSet("picked-protein")) {
     ProteinProbEstimator::setCalcProteinLevelProb(true);
 
@@ -998,6 +1019,13 @@ bool Caller::loadAndNormalizeData(std::istream& dataStream,
 }
 
 /**
+* 执行流程：
+* 1. 读数据
+* 2. 训练 SVM
+* 3. 计算 PSM 概率
+* 4. 计算肽段概率（可选）
+* 5. 计算蛋白概率（可选）
+* 
  * Executes the flow of the percolator process:
  * 1. reads in the input file
  * 2. trains the SVM
@@ -1014,11 +1042,13 @@ int Caller::run() {
 // skip for now
 //  if (analytics_)
 //    postToPostHog("percolator_startup");
+// 计算线程数
 #ifdef _OPENMP
   omp_set_num_threads(static_cast<int>(
       std::min((unsigned int)omp_get_max_threads(), numThreads_)));
 #endif
 
+  // 检查 PIN 格式与 decoy 前缀
   /* Validate tab file and get decoy prefix */
   TabFileValidator tabFileValidator;
   if (!tabFileValidator.validateTabFiles(inputFNs_,
@@ -1028,7 +1058,7 @@ int Caller::run() {
 
   if (inputFNs_.size() == 1) {
     inputFN_ = inputFNs_.at(0);
-  } else if (inputFNs_.size() > 1) {
+  } else if (inputFNs_.size() > 1) { // 如果有多个 PIN 文件，拼接在一起
     tabInput_ = true;
     ValidateTabFile validateTab;
     inputFN_ = validateTab.concatenateMultiplePINs(inputFNs_);
@@ -1047,7 +1077,7 @@ int Caller::run() {
 
   double decoyFractionTraining = 1.0;
   unsigned int numFolds = 3u;
-  if (useResetAlgorithm_) {
+  if (useResetAlgorithm_) { // 默认 FALSE
     if (VERB > 0) {
       std::cerr << "Running the Percolator-RESET algorithm." << std::endl;
     }
@@ -1094,6 +1124,7 @@ int Caller::run() {
     // - apply decoy factor in PosteriorEstimator::estimatePEP
   }
 
+  // 标准 CV
   CrossValidation crossValidation(
       quickValidation_, reportEachIteration_, testFdr_, selectionFdr_,
       initialSelectionFdr_, selectedCpos_, selectedCneg_, numIterations_,

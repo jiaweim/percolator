@@ -40,13 +40,22 @@
 #include "TabFileValidator.h"
 
 
-// Optional columns in tab delimited input
+/**
+ * PIN 文件中的可选字段
+ */
 enum OptionalField {
   SCANNR, EXPMASS, CALCMASS, RETTIME, DELTAMASS, FILENAME
 };
 
+/**
+ * Dataset 表示一组同标签的 PSM。⭐
+ * 所有数据集共享特征名称和特征数量。
+ */
 class DataSet {
  public:
+ /**
+  * 构造函数，默认空的
+  */
   DataSet();
   virtual ~DataSet();
   
@@ -82,11 +91,22 @@ class DataSet {
   void registerPsm(PSMDescription* myPsm);
   
  protected:   
-  
+  /**
+   * 所有 PSM 的容器
+   */
   std::vector<PSMDescription*> psms_;
+  /**
+   * PSM 的标签类型（TARGET/DECOY）
+   * Percolator 将 target 和 decoy 各自放在一个 DataSet 中
+   */
   LabelType label_;
-  
+  /**
+   * PSM 的特征名称表，所有 DataSet 共享一个特征名称表
+   */
   static FeatureNames featureNames_;
+  /**
+   * decoy 前缀不匹配的警告是否已经触发过，只允许输出一次 decoy 前缀警告。
+   */
   static bool decoyWarningTripped_;
 };
 

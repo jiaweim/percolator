@@ -24,11 +24,10 @@
 #include "Enzyme.h"
 
 /*
- * PSMDescription
+ * PSMDescription⭐
  *
  * Here are some useful abbreviations:
  * PSM - Peptide Spectrum Match
- *
  */
 class PSMDescription {
    public:
@@ -54,14 +53,30 @@ class PSMDescription {
         return *one == *other;
     }
 
+    /**
+     * @return 肽段序列，不包含翼氨酸酸
+     */
     std::string getPeptideSequence() { return peptide.substr(2, peptide.size() - 4); }
+    /**
+     * @return 肽段序列，包含翼氨酸酸
+     */
     std::string& getFullPeptideSequence() { return peptide; }
+    /**
+     * @return 肽段的 N 端翼氨酸
+     */
     std::string getFlankN() { return peptide.substr(0, 1); }
+    /**
+     * @return 肽段的 C 端翼氨酸
+     */
     std::string getFlankC() { return peptide.substr(peptide.size() - 1, peptide.size()); }
 
     friend std::ostream& operator<<(std::ostream& out, PSMDescription& psm);
     void printProteins(std::ostream& out);
 
+    /**
+     * 比较运算符，用于排序 PSMDescription 对象，首先按肽段序列排序，如果肽段序列相同，则按保留时间排序
+     * @param other 另一个 PSMDescription 对象
+     */
     bool operator<(const PSMDescription& other) const {
         return (peptide < other.peptide) ||
                (peptide == other.peptide && getRetentionTime() < other.getRetentionTime());
@@ -88,6 +103,10 @@ class PSMDescription {
     }
     static inline const std::string& getProteinNameSeparator() { return proteinNameSeparator_; }
 
+    /**
+     * 在池中线性查找谱图文件名，如果存在则返回索引，否则添加到池中并返回新索引
+     * @param fileName 谱图文件名
+     */
     void setSpectrumFileName(std::string fileName) {
         size_t index(0);
         auto specFilePos = std::find(spectraFileNames_.begin(), spectraFileNames_.end(), fileName);
@@ -99,12 +118,18 @@ class PSMDescription {
         }
         specFileNr = index;
     }
+    /**
+     * 
+     */
     inline const std::string getSpectrumFileName() {
         std::string fn("");
         if (hasSpectrumFileName())
             fn = spectraFileNames_.at(specFileNr);
         return fn;
     }
+    /**
+     * 检查文件池是否为空
+     */
     inline bool static hasSpectrumFileName() { return !spectraFileNames_.empty(); }
 
     void setRetentionFeatures(double* retentionFeatures) {(void) retentionFeatures; }
@@ -113,21 +138,55 @@ class PSMDescription {
     void setParentFragment(PSMDescription*) {}
     PSMDescription* getParentFragment() { return NULL; }
 
+    /**
+     * 设置保留时间
+     * @param retentionTime 保留时间
+     */
     inline void setRetentionTime(const double retentionTime) {
         retentionTime_ = retentionTime;
     }
+    /**
+     * @return 保留时间
+     */
     inline double getRetentionTime() const { return retentionTime_; }
 
+    /**
+     * 特征向量数组的指针，默认 NULL
+     */
     double* features;  // owned by a FeatureMemoryPool instance, no need to delete
+    /**
+     * 实验质量（0.）、计算质量（0.）、保留时间
+     */
     double expMass, calcMass, retentionTime_;
+    /**
+     * scan number（0u），若无 scan，则用行号代替
+     */
     unsigned int scan;
+    /**
+     * 谱图文件在 spectraFileNames_ 中的索引（0u）
+     */
     unsigned int specFileNr;
+    /**
+     * 该 PSM 匹配的蛋白质 ID 列表
+     */
     std::vector<std::string> proteinIds;
 
    protected:
+   /**
+    * PSM identifier
+    */
     std::string id_;
+    /**
+     * 肽段序列，包含翼氨酸酸
+     */
     std::string peptide;
+    /**
+     * 蛋白质名称分隔符，用于将多个蛋白质 ID 连接成一个字符串，默认为 \t
+     */
     static std::string proteinNameSeparator_;
+    /**
+     * 所有谱图文件名的列表，所有 PSMDescription 共享
+     */
     static vector<std::string> spectraFileNames_;
 };
 

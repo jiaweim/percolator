@@ -25,6 +25,7 @@ int main(int argc, char** argv) {
   Caller* pCaller = new Caller();
   int retVal = EXIT_FAILURE; 
   
+  // Caller 为入口，负责解析参数并运行
   try
   {
     if (pCaller->parseOptions(argc, argv)) {

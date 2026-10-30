@@ -22,6 +22,9 @@
 #include <gtest/gtest.h>
 #include "PSMDescription.h"
 
+/**
+ * Check that the removePTMs function correctly removes modifications from peptide sequences.⭐
+ */
 TEST(PSMDescriptionTest, CheckRemovePTMs)
 {
     ASSERT_EQ("K.DAQLLVAER.M", PSMDescription::removePTMs("K.DAQLLVAER.M"));
@@ -35,6 +38,9 @@ TEST(PSMDescriptionTest, CheckRemovePTMs)
     ASSERT_EQ("1..4", PSMDescription::removePTMs("1234"));
 }
 
+/**
+ * Check that the removePTMs function correctly removes modifications from peptide sequences with modifications.⭐
+ */
 TEST(PSMDescriptionTest, CheckRemovePTMsWithModifications)
 {
     // Remove these

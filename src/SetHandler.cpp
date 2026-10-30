@@ -17,8 +17,14 @@
 
 #include "SetHandler.h"
 
+/**
+ * 
+ */
 SetHandler::SetHandler(unsigned int maxPSMs) : maxPSMs_(maxPSMs) {}
 
+/**
+ * 删除所有 Dataset
+ */
 SetHandler::~SetHandler() {
   reset();
 }
@@ -207,6 +213,9 @@ void SetHandler::writeTab(const string& dataFN, SanityCheck * pCheck) {
   }
 }
 
+/**
+ * 解析和注册 PSM
+ */
 void SetHandler::readPSMs(istream& dataStream, std::string& psmLine, 
     bool hasInitialValueRow, bool& concatenatedSearch,
     std::vector<OptionalField>& optionalFields) {

@@ -46,8 +46,11 @@ limitations under the License.
 #include <boost/functional/hash_fwd.hpp>
 
 /*
+* 
+* Percolator 的主控制器，负责解析命令行到结果输出的全流程协调。
+* 
  * Main class that starts and controls the calculations.
- *
+ * 
  * In addition to the calculation Caller also handles command line
  * initialization, parsing input parameters, handling output of the
  * calculation results.
@@ -58,25 +61,55 @@ class Caller {
   Caller();
   virtual ~Caller();
 
+  /// <summary>
+  /// 版本信息
+  /// </summary>
+  /// <returns>版本</returns>
   static string greeter();
+  /// <summary>
+  /// 版本 + 命令 + 参数
+  /// </summary>
+  /// <returns></returns>
   string extendedGreeter();
+  /// <summary>
+  /// 解析命令行参数
+  /// </summary>
+  /// <param name="argc"></param>
+  /// <param name="argv"></param>
+  /// <returns></returns>
   bool parseOptions(int argc, char** argv);
+ 
   int run();
 
  protected:
+  /// <summary>
+  /// 特征归一化
+  /// </summary>
   Normalizer* pNorm_;
+  /// <summary>
+  /// 训练前检查：默认方向、初始权重、过拟合诊断
+  /// </summary>
   SanityCheck* pCheck_;
+  /// <summary>
+  /// 蛋白质推断
+  /// </summary>
   ProteinProbEstimator* protEstimator_;
+  /// <summary>
+  /// 酶切模型（picked-protein 使用）
+  /// </summary>
   Enzyme* enzyme_;
 
-  // file input parameters
+  // 文件输入参数
   bool tabInput_;
   bool readStdIn_;
   std::string inputFN_;
   std::vector<std::string> inputFNs_;
+  /**
+   * decoy 蛋白质的前缀
+   */
   std::string protEstimatorDecoyPrefix_;
 
-  // file output parameters
+  // 文件输出参数
   std::string tabOutputFN_, pepXMLOutputFN_;
   std::string weightOutputFN_;
   std::string psmResultFN_, peptideResultFN_, proteinResultFN_;
@@ -90,7 +123,7 @@ class Caller {
   bool useMixMax_;
   std::string inputSearchType_;
 
-  // SVM / cross validation parameters
+  // SVM/CV 参数
   double selectionFdr_, initialSelectionFdr_, testFdr_;
   unsigned int numIterations_, maxPSMs_, nestedXvalBins_, numThreads_;
   double selectedCpos_, selectedCneg_;
@@ -101,6 +134,9 @@ class Caller {
   // reporting parameters
   std::string call_;
 
+  /// <summary>
+  /// 计时器
+  /// </summary>
   Timer timer;
 
   std::istream& getDataInStream(std::ifstream& fileStream);

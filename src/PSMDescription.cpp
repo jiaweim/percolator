@@ -15,25 +15,39 @@
 
  *******************************************************************************/
 #include "PSMDescription.h"
-
 #include <assert.h>
-
 #include <cmath>
-
 #include "Globals.h"
 
 
+/**
+ * 构造函数。
+ * @feature 特征数组指针初始化为 NULL
+ * @retetionTime_ 初始化为 NaN
+ */
 PSMDescription::PSMDescription() : features(NULL), expMass(0.), calcMass(0.), retentionTime_(nan("")), scan(0u), specFileNr(0u), id_(""), peptide("") {
 }
 
+/**
+ * 构造函数，初始化肽段序列。
+ */
 PSMDescription::PSMDescription(const std::string& pep) : features(NULL), expMass(0.), calcMass(0.), retentionTime_(nan("")), scan(0u), specFileNr(0u), id_(""), peptide(pep) {
 }
 
+/**
+ * 析构函数，默认为空。
+ */
 PSMDescription::~PSMDescription() {}
 
 std::string PSMDescription::proteinNameSeparator_ = "\t";
+/**
+ * 所有谱图文件名的列表，所有 PSMDescription 共享
+ */
 std::vector<string> PSMDescription::spectraFileNames_(0);
 
+/**
+ * 删除 PSMDescription 指针，释放内存
+ */
 void PSMDescription::deletePtr(PSMDescription* psm) {
     if (psm != NULL) {
         psm->deleteRetentionFeatures();
@@ -42,6 +56,10 @@ void PSMDescription::deletePtr(PSMDescription* psm) {
     }
 }
 
+/**
+ * 移除肽段序列中的修饰信息，返回不包含修饰的肽段序列。
+ * @param peptide 肽段序列，包含翼氨酸酸和修饰
+ */
 std::string PSMDescription::removePTMs(const string& peptide) {
     std::string peptideSequence = peptide;
     if (peptide.size() < 4) {
