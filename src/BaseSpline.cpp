@@ -42,6 +42,13 @@ double BaseSpline::stepEpsilon = 1e-8;
 double BaseSpline::weightSlope = 1e1;
 double BaseSpline::scaleAlpha = 1;
 
+/**
+ * 大致流程包括：
+ * 1. 对输入使用Transform::operator()进行变换
+ * 2. 使用二分查找确定样条区间。
+ * 3. 区间内计算二次样条插值。
+ * 4. 超出节点范围时线性外推。
+ */
 double BaseSpline::splineEval(double xx) {
   xx = transf(xx);
   std::size_t n = x.size();

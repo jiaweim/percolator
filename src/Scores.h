@@ -149,8 +149,13 @@ class Scores {
   }
 
  protected:
+ /**
+  * 是否使用 pi0 进行 q 值计算，即真实 null 分布占总体的比例
+  */
   bool usePi0_;
-
+  /**
+   * 
+   */
   double pi0_;
   double targetDecoySizeRatio_, nullTargetWinProb_;
   unsigned int totalNumberOfDecoys_, totalNumberOfTargets_;

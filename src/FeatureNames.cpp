@@ -18,7 +18,7 @@
 
 #include "FeatureNames.h"
 #include "Globals.h"
-
+// 2026-11-02⭐
 /**
  * 初始化静态特征数量，默认没有特征。
  */
@@ -61,7 +61,7 @@ void FeatureNames::initFeatures() {
 }
 
 /**
- * 所有特征名称用 TAB 连接起来，即 TAB 表头
+ * 所有特征名称用 TAB 连接起来，即 TAB 表头⭐
  */
 string FeatureNames::getFeatureNames() {
   int n = (int)featureNames.size();
@@ -76,6 +76,11 @@ string FeatureNames::getFeatureNames() {
   return oss.str();
 }
 
+/**
+ * 根据特征名称返回其索引(1-based)，如果不存在则返回 0。
+ * @param featureName 特征名称，不区分大小写
+ * @return 特征索引⭐
+ */
 int FeatureNames::getFeatureNumber(const string& featureName) {
   for (unsigned int fnum = 0; fnum < featureNames.size(); ++fnum) {
     // there is no easy case insensitive string compare in c++, so go by char

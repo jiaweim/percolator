@@ -41,7 +41,7 @@
 
 
 /**
- * PIN 文件中的可选字段
+ * PIN 文件中的可选字段⭐
  */
 enum OptionalField {
   SCANNR, EXPMASS, CALCMASS, RETTIME, DELTAMASS, FILENAME
@@ -67,10 +67,17 @@ class DataSet {
   unsigned int inline getSize() const { return static_cast<unsigned int>(psms_.size()); }
     
   static FeatureNames& getFeatureNames() { return featureNames_; }
+  /**
+   * 清空特征名称和特征数量，通常用于读取新数据集或调用 SetHandler::reset() 时
+   */
   static void resetFeatureNames() { 
     featureNames_ = FeatureNames();
     FeatureNames::resetNumFeatures();
   }
+  /**
+   * 返回特征数量，用于分配特征数组和遍历特征列。
+   * @return 特征数量
+   */
   static unsigned getNumFeatures() { return static_cast<unsigned>(featureNames_.getNumFeatures()); }
   
   bool writeTabData(std::ofstream& out);
@@ -92,20 +99,19 @@ class DataSet {
   
  protected:   
   /**
-   * 所有 PSM 的容器
+   * 所有 PSM 的指针，由 DataSet 析构函数清理
    */
   std::vector<PSMDescription*> psms_;
   /**
-   * PSM 的标签类型（TARGET/DECOY）
-   * Percolator 将 target 和 decoy 各自放在一个 DataSet 中
+   * 数据集标签，Percolator 将 target 和 decoy 各自放在一个 DataSet 中
    */
   LabelType label_;
   /**
-   * PSM 的特征名称表，所有 DataSet 共享一个特征名称表
+   * static，PSM 特征名称表，所有 DataSet 共享同一个特征名称表
    */
   static FeatureNames featureNames_;
   /**
-   * decoy 前缀不匹配的警告是否已经触发过，只允许输出一次 decoy 前缀警告。
+   * decoy 前缀不匹配的警告是否已经触发过，只输出一次 decoy 前缀警告。
    */
   static bool decoyWarningTripped_;
 };

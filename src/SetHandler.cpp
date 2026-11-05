@@ -18,7 +18,9 @@
 #include "SetHandler.h"
 
 /**
- * 
+ * 构造函数
+ * maxPSMs_ == 0：读取全部 PSM。
+ * maxPSMs_ > 0：最多保留指定数量的 PSM。
  */
 SetHandler::SetHandler(unsigned int maxPSMs) : maxPSMs_(maxPSMs) {}
 
@@ -29,6 +31,9 @@ SetHandler::~SetHandler() {
   reset();
 }
 
+/**
+ * 遍历 subsets，杀出所有 Dataset
+ */
 void SetHandler::reset() {
   for (unsigned int ix = 0; ix < subsets_.size(); ix++) {
     if (subsets_[ix] != NULL) {
@@ -37,9 +42,12 @@ void SetHandler::reset() {
     subsets_[ix] = NULL;
   }
   subsets_.clear();
+  // 清空数据集列表，充值全局特征名称列表。
   DataSet::resetFeatureNames();
 }
 /**
+ * 查找标签对应的数据集。
+ * 
  * Gets the vector index of the DataSet matching the label
  * @param label DataSet label
  * @return index of matching DataSet
@@ -54,6 +62,7 @@ unsigned int SetHandler::getSubsetIndexFromLabel(LabelType label) {
 }
 
 /**
+ * 添加一个数据集。
  * Insert DataSet object into this SetHandler
  * @param ds pointer to DataSet to be inserted
  */
@@ -61,11 +70,19 @@ void SetHandler::push_back_dataset( DataSet * ds ) {
   subsets_.push_back(ds);
 }
 
+/**
+ * 找到对应数据集后，把其中的 PSM 转换为 ScoreHolder 对象，加入 scores。
+ * @param scores ScoreHolder 对象列表
+ */
 void SetHandler::populateScoresWithPSMs(vector<ScoreHolder> &scores, LabelType label) {
   subsets_[getSubsetIndexFromLabel(label)]->fillScores(scores);
 }
 
+/**
+ * 特征归一化。
+ */
 void SetHandler::normalizeFeatures(Normalizer*& pNorm) {
+  // 分别保存普通特征和保留时间特征指针
   std::vector<double*> featuresV, rtFeaturesV;
   for (unsigned int ix = 0; ix < subsets_.size(); ++ix) {
     subsets_[ix]->fillFeatures(featuresV);
@@ -84,12 +101,19 @@ LabelType const SetHandler::getLabel(int setPos) {
   return subsets_[static_cast<std::size_t>(setPos)]->getLabel();
 }
 
+/**
+ * 读取 pin 文件入口⭐2026-11-05
+ */
 int SetHandler::readTab(istream& dataStream, SanityCheck*& pCheck) {
-  std::vector<double> noWeights;
-  Scores noScores(true);
+  std::vector<double> noWeights; // 空权重列表
+  Scores noScores(true); // 空 Scores
   return readAndScoreTab(dataStream, noWeights, noScores, pCheck);
 }
 
+/**
+ * 从 headerLine 中解析可选字段，返回可选字段数量。⭐2026-11-05
+ * @param headerLine 表头行
+ */
 int SetHandler::getOptionalFields(const std::string& headerLine, 
     std::vector<OptionalField>& optionalFields) {
   TabReader reader(headerLine);
@@ -123,6 +147,10 @@ int SetHandler::getOptionalFields(const std::string& headerLine,
   return static_cast<int>(optionalFields.size());
 }
 
+/**
+ * 判断 PIN 第二行是否为 DefaultDirection 行。⭐2026-11-05
+ * @param defaultDirectionLine PIN 第二行
+ */
 bool SetHandler::isDefaultDirectionLine(const std::string& defaultDirectionLine) {
   TabReader reader(defaultDirectionLine);
   
@@ -132,8 +160,15 @@ bool SetHandler::isDefaultDirectionLine(const std::string& defaultDirectionLine)
   return (psmid == "defaultdirection");
 }
 
+/**
+ * 通过第一行 PSM 计算特征数量。⭐2026-11-05
+ * @param line 第一行 PSM
+ * @param optionalFieldCount 可选字段数量
+ */
 int SetHandler::getNumFeatures(const std::string& line, int optionalFieldCount) {
   TabReader reader(line);
+
+  // 2: SpecId + Label
   reader.skip(static_cast<std::size_t>(2 + optionalFieldCount)); // remove id, label and optional fields
   
   reader.readDouble();
@@ -146,6 +181,13 @@ int SetHandler::getNumFeatures(const std::string& line, int optionalFieldCount) 
   return numFeatures;
 }
 
+/**
+ * 从表头行中解析特征名称。⭐2026-11-05
+ * @param headerLine 表头行
+ * @param numFeatures 特征数量
+ * @param optionalFieldCount 可选字段数量
+ * @param featureNames 特征名称容器
+ */
 void SetHandler::getFeatureNames(const std::string& headerLine, 
     int numFeatures, int optionalFieldCount, FeatureNames& featureNames) {
   TabReader reader(headerLine);
@@ -168,6 +210,13 @@ void SetHandler::getFeatureNames(const std::string& headerLine,
   assert(numFeatures == DataSet::getNumFeatures());
 }
 
+/**
+ * 从 DefaultDirection 获取每个特征的初始权重⭐2026-11-05
+ * @param defaultDirectionLine DefaultDirection 行
+ * @param optionalFieldCount 可选字段数量
+ * @param init_values 初始值容器
+ * @return 是否存在默认值
+ */
 bool SetHandler::getInitValues(const std::string& defaultDirectionLine, 
     int optionalFieldCount, std::vector<double>& init_values) {
   TabReader reader(defaultDirectionLine);
@@ -215,6 +264,11 @@ void SetHandler::writeTab(const string& dataFN, SanityCheck * pCheck) {
 
 /**
  * 解析和注册 PSM
+ * @param dataStream 输入流
+ * @param psmLine 第一套 PSM 行
+ * @param hasInitialValueRow 是否存在 DefaultDirection 行
+ * @param concatenatedSearch 是否为连接搜索
+ * @param optionalFields 可选字段列表
  */
 void SetHandler::readPSMs(istream& dataStream, std::string& psmLine, 
     bool hasInitialValueRow, bool& concatenatedSearch,
@@ -338,12 +392,21 @@ void SetHandler::addQueueToSets(
   }
 }
 
+
+/**
+ * 从 PSM 行中解析 ScanId，返回 ScanId 对象。⭐2026-11-05
+ * @param psmLine PSM 行
+ * @param label 输出参数，PSM 标签
+ * @param optionalFields 可选字段列表
+ * @param lineNr 当前行号
+ * @return ScanId 对象
+ */
 ScanId SetHandler::getScanId(const std::string& psmLine, int& label,
     std::vector<OptionalField>& optionalFields, unsigned int lineNr) {
   ScanId scanId;
   TabReader reader(psmLine);
   
-  reader.skip();
+  reader.skip(); // 跳过 psmId
   if (reader.error()) {
     ostringstream temp;
     temp << "ERROR: Reading tab file, error reading PSM on line " << lineNr 
@@ -432,6 +495,14 @@ ScanId SetHandler::getScanId(const std::string& psmLine, int& label,
   return scanId;
 }
 
+/**
+ * 读取 tab 文件实现
+ * @param dataStream 输入数据流
+ * @param rawWeights 已有模型权重，非空时，读取 PSM 时直接计算分数，空时，读取 PSM 并进行校验。暂时不需要
+ * @param allScores 直接读取并打分时保存打分结果
+ * @param pCheck 校验对象，读取 PSM 并进行校验时返回
+ * @return 0 读取失败，1 读取成功
+ */
 int SetHandler::readAndScoreTab(istream& dataStream, 
     std::vector<double>& rawWeights, Scores& allScores, SanityCheck*& pCheck) {
   if (!dataStream) {
@@ -440,6 +511,7 @@ int SetHandler::readAndScoreTab(istream& dataStream,
   }
   std::string psmLine, headerLine, defaultDirectionLine;
   
+  // 1. 读取表头
   getline(dataStream, headerLine); // line with feature names
   headerLine = rtrim(headerLine);
   if (headerLine.substr(0,5) == "<?xml") {
@@ -449,25 +521,31 @@ int SetHandler::readAndScoreTab(istream& dataStream,
     return 0;
   }
   
+  // 2. 解析可选字段
   // Checking for optional headers "ScanNr", "ExpMass", "CalcMass", "Rt"/"RetentionTime" and "dM"/"DeltaMass"
   std::vector<OptionalField> optionalFields;
   int optionalFieldCount = getOptionalFields(headerLine, optionalFields);
+
+  // 3. 判断第二行是否为 DefaultDirection 行
   // parse second line for default direction
   getline(dataStream, defaultDirectionLine);
   defaultDirectionLine = rtrim(defaultDirectionLine);
   bool hasInitialValueRow = isDefaultDirectionLine(defaultDirectionLine);
 
-  // count number of features from first PSM
+  // 4. 从第一条 PSM
   if (hasInitialValueRow) {
     getline(dataStream, psmLine);
   } else {
     psmLine = defaultDirectionLine;
   }
   psmLine = rtrim(psmLine);
+  // 5. 计算特征数量
   int numFeatures = getNumFeatures(psmLine, optionalFieldCount);
   FeatureNames& featureNames = DataSet::getFeatureNames();
-  // fill in the feature names from the header line
+  // 6. 解析特征名称 fill in the feature names from the header line
   getFeatureNames(headerLine, numFeatures, optionalFieldCount, featureNames);
+
+  // 7. 检查特征是否足够
   if (numFeatures < 1) {
     ostringstream oss;
     oss << "ERROR: Reading tab file, too few features present." << std::endl;
@@ -481,7 +559,7 @@ int SetHandler::readAndScoreTab(istream& dataStream,
     featurePool_.createPool(DataSet::getNumFeatures());
   }  
   
-  // fill in the default weights if present
+  // 8. 读取初始权重 fill in the default weights if present
   std::vector<double> init_values;
   bool hasDefaultValues = false;
   if (hasInitialValueRow) {
@@ -499,10 +577,12 @@ int SetHandler::readAndScoreTab(istream& dataStream,
     }
   }
 
+  // 9.1 已有权重，直接读取并打分，跳过
   // read in the data
   if (rawWeights.size() > 0) {
     readAndScorePSMs(dataStream, psmLine, hasInitialValueRow, optionalFields, rawWeights, allScores);
   } else {
+    // 9.2 没有权重，读取 PSM 并进行校验，普通的训练集读取
     // detect if the input came from separate target and decoy searches or 
     // from a concatenated search by looking for scan+expMass combinations
     // that have both at least one target and decoy PSM
@@ -518,6 +598,9 @@ int SetHandler::readAndScoreTab(istream& dataStream,
   return 1;
 }
 
+/**
+ * 已有权重，读取 PSM 并打分⭐2026-11-05
+ */
 void SetHandler::readAndScorePSMs(istream& dataStream, std::string& psmLine, 
     bool hasInitialValueRow, std::vector<OptionalField>& optionalFields, 
     std::vector<double>& rawWeights, Scores& allScores) {

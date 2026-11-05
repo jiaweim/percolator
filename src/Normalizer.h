@@ -22,12 +22,25 @@
 
 using namespace std;
 
+/**
+ * 特征归一化、权重转换和归一化参数管理。
+ */
 class Normalizer {
  public:
   virtual ~Normalizer();
+  /**
+   * 从完整数据集初始化全部参数，包括全部普通特征和保留时间特征
+   * @param featuresV 普通特征向量
+   * @param rtFeaturesV 保留时间特征向量
+   * @param numFeatures 普通特征数量
+   * @param numRetentionFeatures 保留时间特征数量
+   */
   virtual void setSet(vector<double*>& /* featuresV */,
                       vector<double*>& /* rtFeaturesV */, size_t /* numFeatures */,
                       size_t /* numRetentionFeatures*/ ) {}
+  /**
+   * 
+   */
   virtual void updateSet(vector<double*>& /* featuresV */, size_t /* offset */,
                          size_t /* numFeatures */) {}
   
@@ -37,6 +50,9 @@ class Normalizer {
                     size_t offset, size_t numFeatures);
   void normalize(const double* in, double* out, size_t offset,
                  size_t numFeatures);
+  /**
+   * 归一化指定特征。
+   */
   inline double normalize(const double in, size_t index) {
     return (in - sub[index]) / div[index];
   }
@@ -52,6 +68,10 @@ class Normalizer {
     theNormalizer = NULL;
   }
   static void setType(int type);
+
+  /**
+   * 三种静态常量，对应三种归一化类型。
+   */
   const static int UNI = 0;
   const static int STDV = 1;
   const static int NONORM = 2;
@@ -102,8 +122,17 @@ class Normalizer {
   Normalizer();
   static Normalizer* theNormalizer;
   static int subclass_type;
+  /**
+   * 特征数
+   */
   size_t numFeatures, numRetentionFeatures;
+  /**
+   * 每个特征的减数
+   */
   vector<double> sub;
+  /**
+   * 每个特征的除数
+   */
   vector<double> div;
 };
 

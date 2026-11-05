@@ -16,7 +16,9 @@
 #include <algorithm>
 #include <functional>
 
-
+/**
+ * 泛型数组容器。
+ */
 template <typename T>
 class Array 
 {

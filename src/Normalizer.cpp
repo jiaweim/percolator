@@ -36,6 +36,9 @@ Normalizer::Normalizer() {
 Normalizer::~Normalizer() {
 }
 
+/**
+ * 执行归一化
+ */
 void Normalizer::normalizeSet(vector<double*>& featuresV,
                               vector<double*>& rtFeaturesV) {
   normalizeSet(featuresV, 0, numFeatures);

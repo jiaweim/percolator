@@ -1,7 +1,7 @@
 #ifndef ANALYTICS_H
 #define ANALYTICS_H
 
-#include <boost/asio.hpp>
+#include <boost/asio.hpp> // 提供网路连接、DNS 解析和 HTTP socket 操作
 #include <boost/functional/hash.hpp>
 #include <sstream>
 #include <iostream>
@@ -10,6 +10,10 @@
 #include "Version.h"
 
 using boost::asio::ip::tcp;
+
+/**
+ * 这是一个遥测模块，用于向 PostHog 发送使用统计
+ */
 
 // Define your PostHog API key here
 static const std::string POSTHOG_API_KEY = "phc_VdyCaLRunO8zJrq6SY31nezkC368ORUOdFtOj0FPeyQ";

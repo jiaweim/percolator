@@ -1,19 +1,3 @@
-/*******************************************************************************
- Copyright 2006-2012 Lukas Käll <lukas.kall@scilifelab.se>
-
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-
- http://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
-
- *******************************************************************************/
 #include <iostream>
 #ifdef WIN32
 #include <float.h>
@@ -58,6 +42,9 @@ void StdvNormalizer::normalizeweight(const std::vector<double>& in,
   out[i] = in[i] + sum;
 }
 
+/**
+ * 计算每个特征的 sub 和 div⭐
+ */
 void StdvNormalizer::setSet(std::vector<double*>& featuresV,
                             std::vector<double*>& rtFeaturesV, size_t nf,
                             size_t nrf) {
@@ -65,6 +52,8 @@ void StdvNormalizer::setSet(std::vector<double*>& featuresV,
   numRetentionFeatures = nrf;
   sub.resize(nf + nrf, 0.0);
   div.resize(nf + nrf, 0.0);
+
+
   double n = 0.0;
   double* features;
   size_t ix;
@@ -76,6 +65,7 @@ void StdvNormalizer::setSet(std::vector<double*>& featuresV,
       sub[ix] += features[ix];
     }
   }
+  // 这里假设保留时间特征数与 PSM 数一样
   for (it = rtFeaturesV.begin(); it != rtFeaturesV.end(); ++it) {
     features = *it;
     for (ix = numFeatures; ix < numFeatures + numRetentionFeatures; ++ix) {

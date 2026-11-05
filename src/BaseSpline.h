@@ -19,19 +19,40 @@
 #define BASESPLINE_H_
 
 #include <assert.h>
-#include "Transform.h"
-#include "PackedVector.h"
-#include "PackedMatrix.h"
+#include "Transform.h" // 数据 log, logit 变换
+#include "PackedVector.h" // 稀疏向量
+#include "PackedMatrix.h" // 稀疏矩阵
 
+/**
+ * 用于平滑非参数拟合与概率/PEP估计的基础样条回归类
+ */
 class BaseSpline {
   public:
     BaseSpline(){};
     virtual ~BaseSpline(){};
+    /**
+     * 样条求值
+     * @param xx 自变量值
+     * @return 样条函数值
+     */
     double splineEval(double xx);
+    /**
+     * 判断alpha搜索是否收敛。
+     */
     static double convergeEpsilon;
+    /**
+     * 判断IRLS迭代是否收敛。
+     */
     static double stepEpsilon;
+    /**
+     * evaluateSlope()中样条斜率得分的权重。
+     */
     static double weightSlope;
+    /**
+     * alpha搜索时的缩放系数。
+     */
     static double scaleAlpha;
+    
     void roughnessPenaltyIRLS();
     void roughnessPenaltyIRLS_Old();
     void iterativeReweightedLeastSquares(double alpha);

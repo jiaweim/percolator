@@ -29,7 +29,7 @@
 using namespace std;
 
 /**
- * FeatureNames 类用于管理特征名称及其相关信息。⭐
+ * FeatureNames 类用于管理特征名称及其相关信息。⭐2026-11-02
  */
 class FeatureNames {
   public:
@@ -50,7 +50,7 @@ class FeatureNames {
     }
     /**
      * 设置全局特征数量，只在第一次调用时生效，之后的调用会被忽略
-     * @param nf 特征数量
+     * @param nf 特征数量⭐
      */
     static inline void setNumFeatures(size_t nf) {
       if (!numFeatures) {

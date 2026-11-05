@@ -19,6 +19,7 @@
 #include <cmath>
 #include "Globals.h"
 
+// ⭐2026-11-02
 
 /**
  * 构造函数。
