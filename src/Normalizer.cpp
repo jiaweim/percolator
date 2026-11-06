@@ -55,6 +55,9 @@ void Normalizer::normalizeSet(vector<double*>& featuresV,
   }
 }
 
+/**
+ * 执行单个特征向量的归一化⭐
+ */
 void Normalizer::normalize(const double* in, double* out, size_t offset,
                            size_t numFeatures) {
   for (unsigned int ix = 0; ix < numFeatures; ++ix) {

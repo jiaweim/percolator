@@ -36,9 +36,23 @@ SanityCheck::SanityCheck() :
 SanityCheck::~SanityCheck() {
 }
 
+/**
+ * 是否忽略方向异常
+ */
 bool SanityCheck::overRule = false;
+/**
+ * 初始权重文件名
+ */
 string SanityCheck::initWeightFN = "";
+/**
+ * 默认特征编号和方向，正数表示特征越大越好，负数表示越小越好，0 表示不指定方向
+ * 例如 3 表示第三个特征越大越好，-3 表示使用第三个特征，数值也也小越好
+ * 实际访问时要 -1 
+ */
 int SanityCheck::initDefaultDir = 0;
+/**
+ * 默认特征名称
+ */
 string SanityCheck::initDefaultDirName = "";
 vector<double> SanityCheck::default_weights = vector<double>();
 
@@ -56,6 +70,9 @@ SanityCheck* SanityCheck::initialize(string otherCall){
   }
 }
 
+/**
+ * 特征名称转换为特征编号
+ */
 void SanityCheck::checkAndSetDefaultDir() {
   if (!initDefaultDir && initDefaultDirName.size() > 0) {
     int sign = 1;

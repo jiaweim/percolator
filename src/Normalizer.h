@@ -58,8 +58,12 @@ class Normalizer {
   }
   virtual void unnormalizeweight(const vector<double>& /* in */,
                                  vector<double>& /* out */) const {}
+  /**
+   * 将模型权重从原始特征空间转换到归一化特征空间，使权重能够作用于已经归一化的特征。
+   */
   virtual void normalizeweight(const vector<double>& /* in */,
                                vector<double>& /* out */) const {}
+    
   static void endScoreNormalizeWeights(const std::vector<double>& in, 
     std::vector<double>& out, double subScore, double scale);
 

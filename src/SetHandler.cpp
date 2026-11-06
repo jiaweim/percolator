@@ -79,7 +79,7 @@ void SetHandler::populateScoresWithPSMs(vector<ScoreHolder> &scores, LabelType l
 }
 
 /**
- * 特征归一化。
+ * 特征归一化。⭐2026-11-06
  */
 void SetHandler::normalizeFeatures(Normalizer*& pNorm) {
   // 分别保存普通特征和保留时间特征指针
@@ -273,6 +273,15 @@ void SetHandler::writeTab(const string& dataFN, SanityCheck * pCheck) {
 void SetHandler::readPSMs(istream& dataStream, std::string& psmLine, 
     bool hasInitialValueRow, bool& concatenatedSearch,
     std::vector<OptionalField>& optionalFields) {
+
+  // 分为 target 和 decoy 的目的：
+  // - 统计 target 和 decoy 数量
+  // - 计算 target/decoy 比例
+  // - 生成正负训练样本
+  // - 按标签筛选目标
+  // - 单独输出 target/decoy 分数
+  // - 拆分 CV fold
+  // - 根据 decoy 估计 FDR
   DataSet* targetSet = new DataSet();
   assert(targetSet);
   targetSet->setLabel(LabelType::TARGET);

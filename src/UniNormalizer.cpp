@@ -22,6 +22,7 @@ using namespace std;
 #include "Normalizer.h"
 #include "UniNormalizer.h"
 
+//⭐2026-11-06
 UniNormalizer::UniNormalizer() {
 }
 
@@ -39,6 +40,10 @@ void UniNormalizer::unnormalizeweight(const vector<double>& in, vector<
   out[i] = in[i] - sum;
 }
 
+/**
+ * 将原始特征空间的模型权重转换为归一化特征空间的模型权重，使得归一化后的特征能够使用原始特征空间的模型权重进行预测。
+ * ⭐2026-11-06
+ */
 void UniNormalizer::normalizeweight(const vector<double>& in, vector<
     double> & out) const {
   double sum = 0;
@@ -50,6 +55,9 @@ void UniNormalizer::normalizeweight(const vector<double>& in, vector<
   out[i] = in[i] + sum;
 }
 
+/**
+ * 计算每个特征的 sub 和 div⭐2026-11-06
+ */
 void UniNormalizer::setSet(vector<double*> & featuresV,
                            vector<double*> & rtFeaturesV, size_t nf,
                            size_t nrf) {
@@ -85,6 +93,9 @@ void UniNormalizer::setSet(vector<double*> & featuresV,
   }
 }
 
+/**
+ * 只更新指定区间的特征，不包含 RT，其他与 setSet 相同⭐2026-11-06
+ */
 void UniNormalizer::updateSet(vector<double*>& featuresV, size_t offset,
                               size_t numFeatures) {
   vector<double> mins(numFeatures, 1e+100), maxs(numFeatures, -1e+100);

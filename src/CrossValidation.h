@@ -39,6 +39,15 @@ struct CandidateCposCfrac {
   int tp;
 };
 
+/**
+ * 负责：
+ * 1. 将数据划分成多个训练/测试 fold。
+ * 2. 在训练集中生成正负类。
+ * 3. 使用 nested cross-validation 选择正负类别权重。
+ * 4. 迭代重新选择训练正样本。
+ * 5. 合并每个 fold 的测试分数。
+ * 6. 输出原始空间或归一化空间权重。
+ */
 class CrossValidation {
  public:
   CrossValidation(bool quickValidation,
@@ -94,9 +103,15 @@ class CrossValidation {
   std::vector<CandidateCposCfrac>
       classWeightsPerFold_;  // cpos, cneg pairs to train for each nested CV
                              // fold
-
+  /**
+   * 控制是否启用快速收敛判断。
+   * 例如连续两轮改进很小，如 <= 1%，则提前停止训练，避免无意义迭代。
+   */
   bool quickValidation_;
   bool usePi0_;
+  /**
+   * 是否在每轮结束后报告当前验证集性能。
+   */
   bool reportPerformanceEachIteration_;
 
   unsigned int numThreads_;
