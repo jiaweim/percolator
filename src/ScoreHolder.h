@@ -1,19 +1,3 @@
-/*******************************************************************************
- Copyright 2006-2012 Lukas Käll <lukas.kall@scilifelab.se>
-
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-
- http://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
-
- *******************************************************************************/
 #ifndef SCORE_HOLDER_H_
 #define SCORE_HOLDER_H_
 
@@ -71,7 +55,7 @@ class ScoreHolder {
   virtual ~ScoreHolder() {}
 
   /**
-   * (打分,isTarget)，在 java 中用 Tuple 更合适。
+   * (打分,isTarget)，在 java 中用 Tuple 更合适。⭐2026-11-09
    */
   std::pair<double, bool> toPair() const {
     return pair<double, bool>(score, isTarget());
@@ -170,7 +154,7 @@ inline unsigned int fast_uint_hash(unsigned int x) {
 }
 
 /**
- * 用于 CV 的数据划分。
+ * 用于 CV 的数据划分。⭐2026-11-09
  * Percolator 需要把 PSM 随机分配到 K 折，但如果直接按顺序分配，同一张谱图的 PSM 可能集中在同一折，导致训练集
  * 和验证集之间的信息泄露。用哈希排序后，同一谱图的 PSM 的哈希值相同，会被分到同一折，保证谱图级别的分组。
  * 

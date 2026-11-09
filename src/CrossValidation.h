@@ -1,19 +1,3 @@
-/*******************************************************************************
- Copyright 2006-2012 Lukas Käll <lukas.kall@scilifelab.se>
-
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-
- http://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
-
- *******************************************************************************/
 #ifndef CROSSVALIDATION_H_
 #define CROSSVALIDATION_H_
 
@@ -41,7 +25,7 @@ struct CandidateCposCfrac {
 
 /**
  * 负责：
- * 1. 将数据划分成多个训练/测试 fold。
+ * 1. 将数据划分成多个 fold。
  * 2. 在训练集中生成正负类。
  * 3. 使用 nested cross-validation 选择正负类别权重。
  * 4. 迭代重新选择训练正样本。
@@ -68,15 +52,28 @@ class CrossValidation {
 
   ~CrossValidation();
 
+  /**
+   * 准备每一轮训练的输入
+   * @param fullset
+   */
   int preIterationSetup(Scores& fullset,
                         SanityCheck* pCheck,
                         const Normalizer* pNorm,
                         FeatureMemoryPool& featurePool);
 
+  /**
+   * 主训练循环
+   */
   void train(const Normalizer* pNorm);
-
+  
+  /**
+   * 训练后处理
+   */
   void postIterationProcessing(Scores& fullset, SanityCheck* pCheck);
 
+  /**
+   * 输出最终权重
+   */
   void printAllWeights(ostream& weightStream, const Normalizer* pNorm);
 
   void getAvgWeights(std::vector<double>& weights, const Normalizer* pNorm);
@@ -99,7 +96,13 @@ class CrossValidation {
 
  protected:
   std::vector<AlgIn*> svmInputs_;
+  /**
+   * 每个 fold 学到的 SVM 权重
+   */
   std::vector<std::vector<double> > weights_;  // svm weights for each fold
+  /**
+   * 保存每个 fold / nested fold 下的 (Cpos, Cfrac) 参数组合及对应权重
+   */
   std::vector<CandidateCposCfrac>
       classWeightsPerFold_;  // cpos, cneg pairs to train for each nested CV
                              // fold
@@ -116,24 +119,50 @@ class CrossValidation {
 
   unsigned int numThreads_;
 
+  /**
+   * 测试阶段的 FDR
+   */
   double testFdr_;       // fdr used for cross validation performance measuring
+  /**
+   * 选择 positive 训练样本时用的 FDR
+   */
   double selectionFdr_;  // fdr used for determining positive training set
+  /**
+   * 第一轮训练时用的 FDR
+   */
   double initialSelectionFdr_;  // fdr used for determining positive training
                                 // set in first iteration
+  /**
+   * 用户手动指定的正负类惩罚参数
+   */
   double selectedCpos_;  // soft margin parameter for positive training set
   double selectedCneg_;  // soft margin parameter for negative training set
 
+  /**
+   * 最大迭代轮数
+   */
   unsigned int niter_;
+  /**
+   * 嵌套交叉验证的 fold 数
+   */
   unsigned int nestedXvalBins_;
 
   bool trainBestPositive_;
   bool skipNormalizeScores_;
 
   double decoyFractionTraining_;
-
+  /**
+   * 快速停止条件的阈值，值是 0.01
+   */
   const static double requiredIncreaseOver2Iterations_;
 
+  /**
+   * 外层交叉验证的 fold 数
+   */
   unsigned int numFolds_;  // number of folds for cross validation
+  /**
+   * 每个 fold 的训练集和测试集分数
+   */
   std::vector<Scores> trainScores_, testScores_;
   std::vector<double> candidatesCpos_, candidatesCfrac_;
 

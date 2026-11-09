@@ -1,20 +1,3 @@
-/*******************************************************************************
- Copyright 2006-2012 Lukas Käll <lukas.kall@scilifelab.se>
-
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-
- http://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
-
- *******************************************************************************/
-
 #include "SetHandler.h"
 
 /**
@@ -32,7 +15,7 @@ SetHandler::~SetHandler() {
 }
 
 /**
- * 遍历 subsets，杀出所有 Dataset
+ * 遍历 subsets，删除所有 Dataset⭐2026-11-09
  */
 void SetHandler::reset() {
   for (unsigned int ix = 0; ix < subsets_.size(); ix++) {
@@ -45,8 +28,9 @@ void SetHandler::reset() {
   // 清空数据集列表，充值全局特征名称列表。
   DataSet::resetFeatureNames();
 }
+
 /**
- * 查找标签对应的数据集。
+ * 查找标签对应的数据集。⭐2026-11-09
  * 
  * Gets the vector index of the DataSet matching the label
  * @param label DataSet label
@@ -62,7 +46,7 @@ unsigned int SetHandler::getSubsetIndexFromLabel(LabelType label) {
 }
 
 /**
- * 添加一个数据集。
+ * 添加一个数据集。⭐2026-11-09
  * Insert DataSet object into this SetHandler
  * @param ds pointer to DataSet to be inserted
  */
@@ -71,7 +55,7 @@ void SetHandler::push_back_dataset( DataSet * ds ) {
 }
 
 /**
- * 找到对应数据集后，把其中的 PSM 转换为 ScoreHolder 对象，加入 scores。
+ * 找到对应数据集后，把其中的 PSM 转换为 ScoreHolder 对象，加入 scores。⭐2026-11-09
  * @param scores ScoreHolder 对象列表
  */
 void SetHandler::populateScoresWithPSMs(vector<ScoreHolder> &scores, LabelType label) {

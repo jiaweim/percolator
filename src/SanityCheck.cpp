@@ -27,7 +27,6 @@ using namespace std;
 
 // Class doing the sanity check for non SQT file condition
 // In most sence a place holder as very little logic is build-in in this case
-
 SanityCheck::SanityCheck() :
   initPositives_(0), pTestset_(NULL), pTrainset_(NULL), concatenatedSearch_(true),
   test_fdr_(0.01), initial_train_fdr_(0.01) {

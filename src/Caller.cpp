@@ -1039,9 +1039,6 @@ int Caller::run() {
   if (VERB > 0) {
     std::cerr << extendedGreeter();
   }
-// skip for now
-//  if (analytics_)
-//    postToPostHog("percolator_startup");
 // 计算线程数
 #ifdef _OPENMP
   omp_set_num_threads(static_cast<int>(

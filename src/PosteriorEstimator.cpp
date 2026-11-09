@@ -419,11 +419,20 @@ void PosteriorEstimator::getQValuesFromPEP(const vector<double>& pep, vector<dou
 	partial_sum(q.rbegin(), q.rend(), q.rbegin(), mymin);
 }
 
+/**
+ * ⭐2026-11-09
+ * 根据已排序的 target/decoy 分数列表，为 target 项计算经验 p-value。它假设高分更好，并且 combined 已按分数降序排列。
+ * 
+ * @param combined 每项是 (score, isTarget)，true 表示 target，false 表示 decoy。高分靠前。
+ * @param p 输出向量，函数只为 target 追加 p-value，不为 decoy 追加。
+ */
 void PosteriorEstimator::getPValues(const vector<pair<double, bool> >& combined,
                                     vector<double>& p) {
   // assuming combined sorted in best hit first order
   vector<pair<double, bool> >::const_iterator myPair = combined.begin();
-  size_t nDecoys = 1, posSame = 0, negSame = 0;
+  
+  // nDecoys 为 decoy 总数
+  size_t nDecoys = 1, posSame = 0, negSame = 0; // 当前同分数组中的 target 和 decoy 数
   for ( ; myPair != combined.end(); ++myPair) {
     if (myPair->second) { // isTarget
       ++posSame;

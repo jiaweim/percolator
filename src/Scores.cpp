@@ -1,20 +1,3 @@
-/*******************************************************************************
- Copyright 2006-2012 Lukas Käll <lukas.kall@scilifelab.se>
-
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-
- http://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
-
- *******************************************************************************/
-
 #include <boost/assign.hpp>
 #include <cassert>
 #include <cmath>
@@ -38,6 +21,14 @@
 #include "ssl.h"
 #include "IsotonicPEP.h"
 
+/**
+ * 把多个交叉验证 fold 的测试结果汇总到当前 Scores 对象中，并在合并前对各 fold
+ * 的分数和统计量做必要的处理。
+ * @param sv 每个 fold 的 Scores 结果集合
+ * @param fdr 计算 q-value 时使用的 FDR 参数。
+ * @param skipNormalizeScores 是否跳过各 fold 之间的分数归一化。
+ * @param all_w 每个 fold 对应的 SVM 权重；若进行归一化，也会用于同步调整权重。
+ */
 void Scores::merge(std::vector<Scores>& sv,
                    double fdr,
                    bool skipNormalizeScores,
@@ -139,8 +130,13 @@ void Scores::print(LabelType label, std::ostream& os) {
   }
 }
 
+/**
+ * 用 SetHandler 的数据填充 Scores⭐2026-11-09
+ */
 void Scores::populateWithPSMs(SetHandler& setHandler) {
+  // 清空当前数据
   scores_.clear();
+  // 读入所有 target 和 decoy 
   setHandler.populateScoresWithPSMs(scores_, LabelType::TARGET);
   setHandler.populateScoresWithPSMs(scores_, LabelType::DECOY);
   totalNumberOfTargets_ =
@@ -194,11 +190,11 @@ void Scores::populateWithPSMs(SetHandler& setHandler) {
 /**
  * Divides the PSMs from pin file into xval_fold cross-validation sets based on
  * their spectrum scan number
- * @param train vector containing the training sets of PSMs
- * @param test vector containing the test sets of PSMs
- * @param xval_fold number of folds in train and test
+ * @param train vector containing the training sets of PSMs 输出参数，保存每个 fold 的训练集
+ * @param test vector containing the test sets of PSMs，输出参数，保存每个 fold 的测试集
+ * @param xval_fold number of folds in train and test， fold 数量
  * @param featurePool pool for storing features to optimize memory access in SVM
- * @param decoyFractionTraining fraction of decoys to use for training, will
+ * @param decoyFractionTraining fraction of decoys to use for training, will， 
  * be 1 unless RESET algorithm is used
  */
 void Scores::createXvalSetsBySpectrum(std::vector<Scores>& train,
@@ -208,14 +204,19 @@ void Scores::createXvalSetsBySpectrum(std::vector<Scores>& train,
                                       double decoyFractionTraining,
                                       unsigned int decoysPerTarget) {
   // set the number of cross validation folds for train and test to xval_fold
-  train.resize(xval_fold, Scores(usePi0_));
+  train.resize(xval_fold, Scores(usePi0_)); // 初始化，填充为默认 Scores 对象
   test.resize(xval_fold, Scores(usePi0_));
+
+  // 预留大致容量
   size_t approxTestSize = scores_.size() / xval_fold + 1;
   size_t approxTrainSize = (approxTestSize < scores_.size()) ? scores_.size() - approxTestSize : scores_.size();
+  // 给每个 fold 的训练集和测试集预留容量
   for (unsigned int i = 0; i < xval_fold; ++i) {
     train[i].reserve(approxTrainSize);
     test[i].reserve(approxTestSize);
   }
+
+  // 记录每个 fold 还可以分配多少条记录
   // remain keeps track of residual space available in each fold
   std::vector<int> remain(xval_fold);
   // set values for remain: initially each fold is assigned (tot number of
@@ -226,6 +227,7 @@ void Scores::createXvalSetsBySpectrum(std::vector<Scores>& train,
     ix -= remain[static_cast<std::size_t>(fold)];
   }
 
+  // 按谱图 hash 排序，防止同一谱图的 PSM 一部分落入训练集，一部分落入测试集
   std::sort(scores_.begin(), scores_.end(), OrderScanHash());
 
   if (scores_.size() == 0) {
@@ -462,6 +464,9 @@ int Scores::calcScores(std::vector<double>& w) {
   return 0;
 }
 
+/**
+ * ⭐2026-11-09
+ */
 void Scores::getScoreLabelPairs(std::vector<pair<double, bool> >& combined) {
   combined.resize(scores_.size());
   transform(scores_.begin(), scores_.end(), combined.begin(),
@@ -478,6 +483,7 @@ int Scores::calcQvals(double fdr, bool skipDecoysPlusOne) {
   std::vector<pair<double, bool> > combined;
   return calcQvals(fdr, skipDecoysPlusOne, combined);
 }
+
 
 int Scores::calcQvals(double fdr, bool skipDecoysPlusOne,
                       std::vector<pair<double, bool> >& combined) {
@@ -641,12 +647,23 @@ void Scores::weedOutRedundantMixMax() {
   postMergeStep();
 }
 
+/**
+ * 逐个检查每个特征，把该特征分别按“越大越好”和“越小越好”当做初始分类器，计算每种方向能筛选出多少正类，最后
+ * 选择表现最好的特征和方向。
+ * @param initialSelectionFdr 初筛正样本使用的 FDR 阈值
+ * @param direction 输出参数，函数会在其中写入选中的特征方向
+ * @return 按选中的方向和 FDR 阈值统计出的 target 数量。
+ */
 int Scores::getInitDirection(const double initialSelectionFdr,
                              std::vector<double>& direction) {
-  int bestPositives = -1;
-  int bestFeature = -1;
-  bool lowBest = false;
 
+  // 初始化当前最佳选择
+  int bestPositives = -1; // 目前找到的最大 target 刷领
+  int bestFeature = -1; // 表现最好的特征的编号
+  bool lowBest = false; // 记录最佳方向是否为越低越好
+
+
+  // 计算 q-value 时跳过传统的 +1 修正
   // for determining the initial direction, the decoys+1 in the FDR estimates
   // is too restrictive for small datasets
   bool skipDecoysPlusOne = true;

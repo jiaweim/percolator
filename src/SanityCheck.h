@@ -75,8 +75,6 @@ class SanityCheck {
   static string initWeightFN;
   static string initDefaultDirName;
   static int initDefaultDir; // Default Direction, 0=do not use,
-  // positive integer = feature number,
-  // negative integer = lower score better
   
   vector<Scores> *pTestset_, *pTrainset_;
   

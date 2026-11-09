@@ -1,20 +1,3 @@
-/*******************************************************************************
- Copyright 2006-2012 Lukas Käll <lukas.kall@scilifelab.se>
-
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-
- http://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
-
- *******************************************************************************/
-
 #include "CrossValidation.h"
 
 #ifdef _OPENMP
@@ -64,6 +47,9 @@ CrossValidation::CrossValidation(bool quickValidation,
   }
 }
 
+/**
+ * 清理 SVM 输入缓存
+ */
 CrossValidation::~CrossValidation() {
   for (unsigned int set = 0; set < numFolds_ * nestedXvalBins_; ++set) {
     if (svmInputs_[set]) {
@@ -95,30 +81,39 @@ int CrossValidation::preIterationSetup(Scores& fullset,
   assert(nestedXvalBins_ >= 1u);
   // One input set per (nested) cross validation bin, to be reused multiple
   // times
+  // 为每个 fold 分配 AlgIn
   for (unsigned int set = 0; set < numFolds_ * nestedXvalBins_; ++set) {
     svmInputs_.push_back(new AlgIn(
-        fullset.size(), static_cast<int>(FeatureNames::getNumFeatures()) + 1));
+        fullset.size(), static_cast<int>(FeatureNames::getNumFeatures()) + 1)); // +1 是考虑截距
     assert(svmInputs_.back());
   }
 
+  // 每个 target 对应的 decoy 数目为 1
   unsigned int decoysPerTarget = 1u;  // TODO: make this a command line argument
+  // 把原始数据分成训练/测试集
+  // trainScores 和 testScores 保存每个 fold 的数据
   fullset.createXvalSetsBySpectrum(trainScores_, testScores_, numFolds_,
                                    featurePool, decoyFractionTraining_,
                                    decoysPerTarget);
 
+  // 给每个 fold 一个权重向量
   // initialize weights vector for all folds
   weights_ = vector<vector<double> >(
       numFolds_, vector<double>(FeatureNames::getNumFeatures() + 1));
+  // 根据测试集与训练集的方向，初始化每个 fold 的权重
   int numPositive =
       pCheck->getInitDirection(testScores_, trainScores_, pNorm, weights_,
                                testFdr_, initialSelectionFdr_);
 
+  // 生成候选 Cpos/Cfrac 参数网格
   initializeGridSearch(fullset.getTargetDecoySizeRatio());
 
   return numPositive;
 }
 
 /**
+ * 穷举候选参数。
+ * 超参数搜索的关键步骤。
  * Fill member variables with grid search parameters.
  *
  * Side effects: updates the candidatesCpos_, candidatesCfrac_ and
@@ -128,8 +123,10 @@ int CrossValidation::preIterationSetup(Scores& fullset,
  */
 void CrossValidation::initializeGridSearch(double targetDecoySizeRatio) {
   if (selectedCpos_ > 0) {
+    // 此时只保留手动指定的 selectedCpos_
     candidatesCpos_.push_back(selectedCpos_);
   } else {
+    // 否则候选选择 10 1 0.1
     candidatesCpos_.push_back(10);
     candidatesCpos_.push_back(1);
     candidatesCpos_.push_back(0.1);
@@ -150,11 +147,11 @@ void CrossValidation::initializeGridSearch(double targetDecoySizeRatio) {
 
   // Form cpos, cneg pairs per nested CV fold
   CandidateCposCfrac cpCnFold;
-  for (unsigned int set = 0; set < numFolds_; ++set) {
-    for (int nestedSet = 0; nestedSet < nestedXvalBins_; nestedSet++) {
+  for (unsigned int set = 0; set < numFolds_; ++set) { // 外层 fold
+    for (int nestedSet = 0; nestedSet < nestedXvalBins_; nestedSet++) { // 内层 fold
       std::vector<double> candidatesCpos = candidatesCpos_;
       std::vector<double> candidatesCfrac = candidatesCfrac_;
-      if (quickValidation_) {  // in quick validation,
+      if (quickValidation_) {  // in quick validation, // 只保留一个参数组合（1,1）
         candidatesCpos = std::vector<double>(1, 1);
         candidatesCfrac = std::vector<double>(1, 1);
       }
@@ -166,8 +163,7 @@ void CrossValidation::initializeGridSearch(double targetDecoySizeRatio) {
           cpCnFold.nestedSet = nestedSet;
           cpCnFold.tp = 0;
           cpCnFold.ww.clear();
-          for (int i = static_cast<int>(FeatureNames::getNumFeatures()) + 1;
-               i--;) {
+          for (int i = static_cast<int>(FeatureNames::getNumFeatures()) + 1; i--;) {
             cpCnFold.ww.push_back(0);
           }
           classWeightsPerFold_.push_back(cpCnFold);
@@ -178,6 +174,7 @@ void CrossValidation::initializeGridSearch(double targetDecoySizeRatio) {
 }
 
 /**
+ * 主循环
  * Train the SVM using several cross validation iterations
  * @param pNorm Normalization object
  */
@@ -206,14 +203,18 @@ void CrossValidation::train(const Normalizer* pNorm) {
       cerr << "Iteration " << i + 1 << ":\t";
     }
 
+    // 1. 第 1 轮用 initialSelectionFdr_
     double selectionFdr = selectionFdr_;
     if (i == 0u) {
       selectionFdr = initialSelectionFdr_;
     }
+    // 做一轮完整的交叉验证训练和参数选择，返回估计的 positive 数量
     foundPositives = doStep(pNorm, selectionFdr);
+
 
     if (reportPerformanceEachIteration_) {
       int foundTestPositives = 0;
+      // 对每个 fold的 testScores_ 执行 calcScoresAndQvals
       for (size_t set = 0; set < numFolds_; ++set) {
         foundTestPositives +=
             testScores_[set].calcScoresAndQvals(weights_[set], testFdr_);
@@ -233,9 +234,12 @@ void CrossValidation::train(const Normalizer* pNorm) {
     if (VERB > 3) {
       printAllRawWeightsColumns(cerr, pNorm);
     }
+
+    // 收敛判定
     if (foundPositives > 0 && foundPositivesOldOld > 0 && quickValidation_ &&
         (static_cast<double>(foundPositives - foundPositivesOldOld) <=
          foundPositivesOldOld * requiredIncreaseOver2Iterations_)) {
+      // 连续两轮增益小于 1%，就停止
       if (VERB > 0) {
         std::cerr << "Performance increase over the last two iterations "
                   << "indicate that the algorithm has converged\n"
@@ -265,13 +269,14 @@ void CrossValidation::train(const Normalizer* pNorm) {
 }
 
 /**
+ * 最核心的函数。
  * Executes a cross validation step
  * @param w_ list of the bins' normal vectors (in linear algebra sense) of the
  *        hyperplane from SVM
  * @return Estimation of number of true positives
  */
 int CrossValidation::doStep(const Normalizer* pNorm, double selectionFdr) {
-  // Setup
+  // Setup 设置 SVM 参数 L2-SVM，控制收敛和迭代
   options pOptions;
   pOptions.lambda = 1.0;
   pOptions.lambda_u = 1.0;
@@ -280,6 +285,9 @@ int CrossValidation::doStep(const Normalizer* pNorm, double selectionFdr) {
   pOptions.mfnitermax = MFNITERMAX;
   int estTruePos = 0;
 
+  // 用当前权重给训练集打分
+  // 按 selectionFdr 选出候选 positive
+  // 这决定下一轮训练用哪些样本做正类训练
   // for determining an appropriate positive training set, the decoys+1 in the
   // FDR estimates is too restrictive for small datasets
   bool skipDecoysPlusOne = true;
@@ -303,6 +311,7 @@ int CrossValidation::doStep(const Normalizer* pNorm, double selectionFdr) {
   //   learned SVM parameters
   // ////
 
+  // 创建 nested CV 的训练/测试集
   // Create SVM input data for parallelization
   std::vector<AlgIn*> svmInputsVec;
   std::vector<std::vector<Scores> > nestedTestScoresVec;
@@ -311,6 +320,7 @@ int CrossValidation::doStep(const Normalizer* pNorm, double selectionFdr) {
         nestedTestScores(nestedXvalBins_, usePi0_);
     if (nestedXvalBins_ > 1) {
       FeatureMemoryPool featurePool;
+      //  nestedXvalBins_ > 1 时执行 nested cross-validation
       trainScores_[set].createXvalSetsBySpectrum(
           nestedTrainScores, nestedTestScores, nestedXvalBins_, featurePool);
     } else {

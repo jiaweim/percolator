@@ -1,20 +1,3 @@
-/*******************************************************************************
- Copyright 2006-2012 Lukas Käll <lukas.kall@scilifelab.se>
-
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-
- http://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
-
- *******************************************************************************/
-
 #include "DataSet.h"
 #include <cmath>
 
@@ -42,10 +25,6 @@ DataSet::~DataSet() {
     PSMDescription::deletePtr(*it);
   }
 }
-
-/*const double* DataSet::getFeatures(const int pos) const {
-  return &feature[pos];
-}*/
 
 /**
  * 将当前数据写入 Tab 文件
@@ -100,8 +79,8 @@ void DataSet::print_10features() {
   }
 }
 
-// TODO: find a way to make these three functions generic
 /**
+ * ⭐2026-11-09
  * 将数据集的 PSM 转换为训练或排序所需的 ScoreHolder 对象列表。
  * Dataset 负责提供 PSM，ScoreHolder 负责保存打分和统计结果。
  */
@@ -114,6 +93,7 @@ void DataSet::fillScores(std::vector<ScoreHolder>& scores) {
 }
 
 /**
+ * ⭐2026-11-09
  * 导出特征数组指针列表，用于训练或排序。每个 PSM 的特征数组由 FeatureMemoryPool 管理。
  */
 void DataSet::fillFeatures(std::vector<double*>& features) {
