@@ -474,6 +474,7 @@ void Scores::getScoreLabelPairs(std::vector<pair<double, bool> >& combined) {
 }
 
 /**
+ * ⭐2026-11-10
  * Calculates the q-value for each psm in scores_: the q-value is the minimal
  * FDR of any set that includes the particular psm
  * @param fdr FDR threshold specified by user (default 0.01)
@@ -484,22 +485,28 @@ int Scores::calcQvals(double fdr, bool skipDecoysPlusOne) {
   return calcQvals(fdr, skipDecoysPlusOne, combined);
 }
 
-
+/**
+ * 计算 q-value ⭐2026-11-10
+ */
 int Scores::calcQvals(double fdr, bool skipDecoysPlusOne,
                       std::vector<pair<double, bool> >& combined) {
   assert(totalNumberOfDecoys_ + totalNumberOfTargets_ == size());
 
+  // 从 scores_ 构建 combined 列表
   getScoreLabelPairs(combined);
 
+  // 计算 q-values
   std::vector<double> qvals;
   PosteriorEstimator::setNegative(true);  // also get q-values for decoys
   PosteriorEstimator::getQValues(pi0_, combined, qvals, skipDecoysPlusOne,
                                  nullTargetWinProb_);
 
+
   // set q-values and count number of positives
   std::vector<double>::const_iterator qIt = qvals.begin();
   std::vector<ScoreHolder>::iterator scoreIt = scores_.begin();
 
+  // 计算 q<fdr 的 target 数
   int numPos = 0;
   for (; qIt != qvals.end(); ++qIt, ++scoreIt) {
     scoreIt->q = *qIt;
@@ -648,6 +655,7 @@ void Scores::weedOutRedundantMixMax() {
 }
 
 /**
+ * ⭐2026-11-10
  * 逐个检查每个特征，把该特征分别按“越大越好”和“越小越好”当做初始分类器，计算每种方向能筛选出多少正类，最后
  * 选择表现最好的特征和方向。
  * @param initialSelectionFdr 初筛正样本使用的 FDR 阈值
@@ -658,26 +666,28 @@ int Scores::getInitDirection(const double initialSelectionFdr,
                              std::vector<double>& direction) {
 
   // 初始化当前最佳选择
-  int bestPositives = -1; // 目前找到的最大 target 刷领
-  int bestFeature = -1; // 表现最好的特征的编号
-  bool lowBest = false; // 记录最佳方向是否为越低越好
-
+  int bestPositives = -1; // 目前找到的最大 target 数
+  int bestFeature = -1; // 表现最好的特征编号
+  bool lowBest = false; // 最佳方向是否越低越好
 
   // 计算 q-value 时跳过传统的 +1 修正
   // for determining the initial direction, the decoys+1 in the FDR estimates
   // is too restrictive for small datasets
-  bool skipDecoysPlusOne = true;
+  bool skipDecoysPlusOne = true; // 关闭 +1 平滑
 
   // pre-allocate once and reuse across all 2*numFeatures calcQvals calls
   std::vector<pair<double, bool> > combined;
   combined.reserve(scores_.size());
 
+  // 遍历每个特征
   for (unsigned int featNo = 0; featNo < FeatureNames::getNumFeatures();
        featNo++) {
     for (std::vector<ScoreHolder>::iterator scoreIt = scores_.begin();
          scoreIt != scores_.end(); ++scoreIt) {
       scoreIt->score = scoreIt->pPSM->features[featNo];
     }
+    // 用当前特征覆盖 scores
+    // 升序
     sort(scores_.begin(), scores_.end());
     // check once in forward direction (i = 0, higher scores are better) and
     // once in backward direction (i = 1, lower scores are better)

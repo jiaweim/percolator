@@ -7,7 +7,7 @@
 #include <regex>
 
 /**
- * 通用排序：⭐
+ * 通用排序：⭐2026-11-10
  * 1. score，降序
  * 2. scan，降序
  * 3. expMass，降序
@@ -23,7 +23,7 @@ bool operator>(const ScoreHolder& one, const ScoreHolder& other) {
 }
 
 /**
- * 通用排序：⭐
+ * 通用排序：⭐2026-11-10
  * 1. score，升序
  * 2. scan，升序
  * 3. expMass，升序

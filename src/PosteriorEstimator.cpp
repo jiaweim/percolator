@@ -63,6 +63,9 @@ bool isMixed(const pair<double, bool>& aPair) {
   return aPair.second;
 }
 
+/**
+ * ⭐2026-11-10
+ */
 template<class T> void bootstrap(const vector<T>& in, vector<T>& out,
                                  size_t max_size = 1000) {
   out.clear();
@@ -304,10 +307,17 @@ void PosteriorEstimator::binData(const vector<pair<double, bool> >& combined,
 }
 
 /**
- * Assumes that scores are sorted in descending order
+ * Assumes that scores are sorted in descending order⭐2026-11-10
+ * @param combined 按打分降序排序
+ * @param h_w_le_z 输出，累积 target 数
+ * @param h_z_le_z 输出，累积 decoy 数
  */
 void PosteriorEstimator::getMixMaxCounts(const vector<pair<double, bool> >& combined,
     std::vector<double>& h_w_le_z, std::vector<double>& h_z_le_z) {
+  // 为每个 decoy 打分，记录分数 ≤ 该 decoy 分数的 target 和 decoy 数
+  // cnt_z, decoy 总数
+  // cnt_w, target 总数
+  // queue, 当前 tie 内的 decoy 数
   int cnt_z = 0, cnt_w = 0, queue = 0;
   std::vector<pair<double, bool> >::const_reverse_iterator myPairRev = combined.rbegin();
   for ( ; myPairRev != combined.rend(); ++myPairRev) {
@@ -330,6 +340,7 @@ void PosteriorEstimator::getMixMaxCounts(const vector<pair<double, bool> >& comb
 }
 
 /**
+ * ⭐2026-11-10
  * This is a reimplementation of 
  *   Crux/src/app/AssignConfidenceApplication.cpp::compute_decoy_qvalues_mixmax 
  * Which itself was a reimplementation of Uri Keich's code written in R.
@@ -337,24 +348,36 @@ void PosteriorEstimator::getMixMaxCounts(const vector<pair<double, bool> >& comb
  * Assumes that scores are sorted in descending order
  * 
  * If pi0 == 1.0 this is equal to the "traditional" q-value calculation
+ * @param pi0 foreign 谱图比例，pi0 == 1.0 时退化为传统 STDS
+ * @param combined 按分数降序排列
+ * @param q 输出数组
+ * @param skipDecoysPlusOne 是否跳过 decoy 计数的 +1 平滑
+ * @param nullTargetWinProb 零假设下 target 在 TDC 竞争中获胜的概率，默认 0.5
  */
 void PosteriorEstimator::getQValues(double pi0, 
     const vector<pair<double, bool> >& combined, vector<double>& q,
     bool skipDecoysPlusOne, double nullTargetWinProb) {
+  
+  // TDC 的 FDR 估计假设“零假设中 target 和 decoy 获胜概率相等”
+  // 如果实际不等，那么实际每个 decoy 代表的错误数量就不是 1，而是这个比值
+  // 对 mix-max 分开检索，零假设下 target 在 TDC 竞争中获胜的概率，默认 0.5
   double decoyFactor = nullTargetWinProb / (1.0 - nullTargetWinProb);
 
+  // pi0 < 1.0：走 mix-max 路径，需要 h_w_le_z/h_z_le_z 来估计 native 谱图的贡献 F1
+  // pi0 == 1.0：跳过 ECDF 计算，走传统 STDS 路径
   std::vector<double> h_w_le_z, h_z_le_z; // N_{w<=z} and N_{z<=z}
   if (pi0 < 1.0) {
     getMixMaxCounts(combined, h_w_le_z, h_z_le_z);
   }
 
-  double estPx_lt_zj = 0.0;
-  double E_f1_mod_run_tot = 0.0;
-  double fdr = 0.0;
+  double estPx_lt_zj = 0.0; // 当前 tie 组的 P(X≤zj) 估计
+  double E_f1_mod_run_tot = 0.0; // 累积的 native-spectrum 错误
+  double fdr = 0.0; // 当前 FDR
 
   int n_z_ge_w = 1, n_w_ge_w = 0; // N_{z>=w} and N_{w>=w}
   if (skipDecoysPlusOne) n_z_ge_w = 0;
   
+  // 降序遍历，处理 tie 组
   std::vector<pair<double, bool> >::const_iterator myPair = combined.begin();
   int decoyQueue = 0, targetQueue = 0; // handles ties
   for ( ; myPair != combined.end(); ++myPair) {
@@ -397,11 +420,16 @@ void PosteriorEstimator::getQValues(double pi0,
   partial_sum(q.rbegin(), q.rend(), q.rbegin(), mymin);
 }
 
+/**
+ * ⭐2026-11-10
+ * 从 p-value 数组计算 q-value，公式：
+ */
 void PosteriorEstimator::getQValuesFromP(double pi0,
                                          const vector<double>& p, vector<double> & q) {
-	double m = (double)p.size();
-	int nP = 1;
+	double m = (double)p.size(); // p value 总数
+	int nP = 1; // rank 值
 	// assuming combined sorted in decending order
+  // p value 升序排序
 	for (vector<double>::const_iterator myP = p.begin(); myP != p.end(); ++myP, ++nP) {
 		q.push_back((*myP * m * pi0) / (double)nP);
 	}
@@ -466,23 +494,26 @@ bool PosteriorEstimator::checkSeparation(std::vector<double>& p) {
 
 /*
  * Described in Storey, "A direct approach to false discovery rates."
- * JRSS 2002.
+ * JRSS 2002. ⭐2026-11-10
+ * @param p 按升序排序的 p-value 
+ * @param numBoot bootstrap 迭代次数
+ * @return π0 的估计值
  */
 double PosteriorEstimator::estimatePi0(vector<double>& p,
                                        const unsigned int numBoot) {
   vector<double> lambdas, pi0s;
   vector<double>::iterator start;
-  size_t n = p.size();
+  size_t n = p.size(); // p-value 总数
   // Calculate pi0 for different values for lambda
   // N.B. numLambda and maxLambda are global variables.
-  for (unsigned int ix = 0; ix <= numLambda; ++ix) {
-    double lambda = ((ix + 1) / (double)numLambda) * maxLambda;
+  for (unsigned int ix = 0; ix <= numLambda; ++ix) { // 共  100 个
+    double lambda = ((ix + 1) / (double)numLambda) * maxLambda; // 0.5
     // Find the index of the first element in p that is < lambda.
     // N.B. Assumes p is sorted in ascending order.
-    start = lower_bound(p.begin(), p.end(), lambda);
+    start = lower_bound(p.begin(), p.end(), lambda); // 在 p 中找到第一个 ≥ λ 的位置
     // Calculates the difference in index between start and end
-    double Wl = (double)distance(start, p.end());
-    double pi0 = Wl / static_cast<double>(n) / (1. - lambda);
+    double Wl = (double)distance(start, p.end()); // 从该未知到末尾的元素个数
+    double pi0 = Wl / static_cast<double>(n) / (1. - lambda); // Storey 核心公式
     if (pi0 > 0.0) {
       lambdas.push_back(lambda);
       pi0s.push_back(pi0);
