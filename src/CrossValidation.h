@@ -164,6 +164,9 @@ class CrossValidation {
    * 每个 fold 的训练集和测试集分数
    */
   std::vector<Scores> trainScores_, testScores_;
+  /**
+   * 网格搜索的候选 Cpos 与 Cfrac
+   */
   std::vector<double> candidatesCpos_, candidatesCfrac_;
 
   void initializeGridSearch(double targetDecoySizeRatio);

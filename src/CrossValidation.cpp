@@ -60,6 +60,7 @@ CrossValidation::~CrossValidation() {
 }
 
 /**
+ * ⭐2026-11-11
  * Sets up the SVM classifier:
  * - divide dataset into training and test sets for each fold
  * - set parameters (fdr, soft margin)
@@ -112,8 +113,11 @@ int CrossValidation::preIterationSetup(Scores& fullset,
 }
 
 /**
- * 穷举候选参数。
- * 超参数搜索的关键步骤。
+ * ⭐2026-11-11
+ * 为 SVM 的超参数搜索准备候选组合：
+ * 1. 确定 Cpos 的候选值
+ * 2. 确定 cfrac=Cneg/Cpos 的候选值
+ * 3. 为每个外层 foldx嵌套内层 binx每个候选组合创建
  * Fill member variables with grid search parameters.
  *
  * Side effects: updates the candidatesCpos_, candidatesCfrac_ and
@@ -122,24 +126,37 @@ int CrossValidation::preIterationSetup(Scores& fullset,
  * @param targetDecoySizeRatio ratio of target to decoy PSMs
  */
 void CrossValidation::initializeGridSearch(double targetDecoySizeRatio) {
-  if (selectedCpos_ > 0) {
+  // 如果 target 数量远多于 decoy（targetDecoySizeRatio = R > 1），
+  // 即使用相同的 Cpos = Cneg，target 的总损失项也会是 decoy 的 R 倍。
+  // SVM 会偏袒 decoy——把决策边界推向 target 一侧，因为误分类 target 的代价更高
+  // 平衡条件：
+  // 让两类总惩罚平衡
+  // Cpos·Ntarget=Cneg·Ndecoy
+  // Cneg/Cpos=Ntarget/Ndecoy=R
+  // 因此，Cneg=RxCpos 为起点
+
+  if (selectedCpos_ > 0) { // 只保留用户指定的值
     // 此时只保留手动指定的 selectedCpos_
     candidatesCpos_.push_back(selectedCpos_);
   } else {
     // 否则候选选择 10 1 0.1
-    candidatesCpos_.push_back(10);
+    candidatesCpos_.push_back(10); // 强拟合
     candidatesCpos_.push_back(1);
     candidatesCpos_.push_back(0.1);
     if (VERB > 0) {
       cerr << "Selecting Cpos by cross-validation." << endl;
     }
   }
+
+  // Cfrac 候选
   if (selectedCpos_ > 0 && selectedCneg_ > 0) {
     candidatesCfrac_.push_back(selectedCneg_ / selectedCpos_);
   } else {
-    candidatesCfrac_.push_back(1.0 * targetDecoySizeRatio);
-    candidatesCfrac_.push_back(3.0 * targetDecoySizeRatio);
-    candidatesCfrac_.push_back(10.0 * targetDecoySizeRatio);
+    // 候选的实际效果区间域 R，因此搜 frac 比直接搜 Cneg 更好
+    // 从平衡到强烈不平衡
+    candidatesCfrac_.push_back(1.0 * targetDecoySizeRatio); // 完全平衡
+    candidatesCfrac_.push_back(3.0 * targetDecoySizeRatio); // 让 decoy 误分类代价更高
+    candidatesCfrac_.push_back(10.0 * targetDecoySizeRatio); // 强烈偏向 decoy
     if (VERB > 0) {
       cerr << "Selecting Cneg by cross-validation." << endl;
     }

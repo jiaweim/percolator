@@ -1,5 +1,3 @@
-
-
 #include "Timer.h"
 
 #include <iostream>

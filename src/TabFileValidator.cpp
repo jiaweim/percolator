@@ -1,23 +1,8 @@
-/*******************************************************************************
- Copyright 2006-2012 Lukas Käll <lukas.kall@scilifelab.se>
-
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-
- http://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
-
- *******************************************************************************/
-
 #include "TabFileValidator.h"
 
 /**
+ * ⭐2026-11-11
+ * 单文件格式检查，判断是否为 tab 分隔格式。
  * TabFileValidator 类用于验证 PIN 文件的格式和内容
  */
 bool TabFileValidator::isTabFile(std::string fileName) {
@@ -52,6 +37,7 @@ bool TabFileValidator::isTabFile(std::string fileName) {
 }
 
 /**
+ * ⭐2026-11-11
  * 批量检查多个文件是否都是制表符分隔的文件
  */
 bool TabFileValidator::isTabFiles(std::vector<std::string> fileNames) {
@@ -78,6 +64,7 @@ std::string TabFileValidator::getDecoyPrefix(std::vector<std::string> fileNames)
 }
 
 /**
+ * ⭐2026-11-11
  * 解析 header 行，获取蛋白质列和标签列的索引
  * 
  * @param fileName 文件名
@@ -119,7 +106,7 @@ void TabFileValidator::getProteinAndLabelColumnIndices(std::string fileName, int
 }
 
 /**
- * 
+ * ⭐2026-11-11
  */
 std::string TabFileValidator::getLongestCommonPrefix(std::vector<std::string> strings) {
   size_t numStrings = strings.size();

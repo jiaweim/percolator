@@ -1,10 +1,10 @@
-
 #ifndef TIMER_H_
 #define TIMER_H_
 
 #include <string>
 #include <ctime>
 
+//⭐2026-11-11
 /* Timer is for measuring wall clock time and CPU time of different code sections. Stop is used to make a checkpoint in time and reset for restarting the timer. */
 class Timer
 {

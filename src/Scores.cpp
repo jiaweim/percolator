@@ -59,6 +59,9 @@ void Scores::postMergeStep() {
   checkSeparationAndSetPi0();
 }
 
+/**
+ * 计算 SVM score ⭐2026-11-11
+ */
 double Scores::calcScore(const double* feat,
                          const std::vector<double>& w) const {
   std::size_t ix = FeatureNames::getNumFeatures();
@@ -188,6 +191,12 @@ void Scores::populateWithPSMs(SetHandler& setHandler) {
 }
 
 /**
+ * ⭐2026-11-11
+ * 交叉验证划分。
+ * 
+ * 将排序 PSM 结合划分为 xval_fold 个训练集/测试集对，并保证同一张谱图的所有 PSM 落在同一个 fold>
+ * 同时处理 RESET 算法所需的 pseudo-target 转换为 nullTargetWinProb 计算。
+ * 
  * Divides the PSMs from pin file into xval_fold cross-validation sets based on
  * their spectrum scan number
  * @param train vector containing the training sets of PSMs 输出参数，保存每个 fold 的训练集
@@ -197,28 +206,28 @@ void Scores::populateWithPSMs(SetHandler& setHandler) {
  * @param decoyFractionTraining fraction of decoys to use for training, will， 
  * be 1 unless RESET algorithm is used
  */
-void Scores::createXvalSetsBySpectrum(std::vector<Scores>& train,
-                                      std::vector<Scores>& test,
-                                      unsigned int xval_fold,
-                                      FeatureMemoryPool& featurePool,
-                                      double decoyFractionTraining,
-                                      unsigned int decoysPerTarget) {
+void Scores::createXvalSetsBySpectrum(std::vector<Scores>& train, // 输出 xal_fold 个训练集
+                                      std::vector<Scores>& test, // 输出 xval_fold 个测试集
+                                      unsigned int xval_fold, // fold 数
+                                      FeatureMemoryPool& featurePool, // 特征内存池
+                                      double decoyFractionTraining, // RESET: decoy 进训练集的比例
+                                      unsigned int decoysPerTarget) { // RESET：每个 target 对应的 decoy 数
   // set the number of cross validation folds for train and test to xval_fold
   train.resize(xval_fold, Scores(usePi0_)); // 初始化，填充为默认 Scores 对象
   test.resize(xval_fold, Scores(usePi0_));
 
   // 预留大致容量
-  size_t approxTestSize = scores_.size() / xval_fold + 1;
-  size_t approxTrainSize = (approxTestSize < scores_.size()) ? scores_.size() - approxTestSize : scores_.size();
+  size_t approxTestSize = scores_.size() / xval_fold + 1; // 每个测试集大于 n/k+1 个 PSM
+  size_t approxTrainSize = (approxTestSize < scores_.size()) ? scores_.size() - approxTestSize : scores_.size(); // 每个训练集大约 n-approxTestSize 个PSM
   // 给每个 fold 的训练集和测试集预留容量
   for (unsigned int i = 0; i < xval_fold; ++i) {
     train[i].reserve(approxTrainSize);
     test[i].reserve(approxTestSize);
   }
 
-  // 记录每个 fold 还可以分配多少条记录
+  // 均分余数算法：从组后一个 fold 往前，每次分剩余PSM/剩余 PSM，保证每个 fold 大小差不多
   // remain keeps track of residual space available in each fold
-  std::vector<int> remain(xval_fold);
+  std::vector<int> remain(xval_fold); // 例如，10 分为 3 3 4,11 分为 3 4 
   // set values for remain: initially each fold is assigned (tot number of
   // scores_ / tot number of folds)
   int fold = static_cast<int>(xval_fold), ix = static_cast<int>(scores_.size());
@@ -227,9 +236,13 @@ void Scores::createXvalSetsBySpectrum(std::vector<Scores>& train,
     ix -= remain[static_cast<std::size_t>(fold)];
   }
 
-  // 按谱图 hash 排序，防止同一谱图的 PSM 一部分落入训练集，一部分落入测试集
+  // 按谱图 hash 排序，排序后，相同 specFileNr + scan 的所有 PSM 相邻
+  // 如果直接按 scan 排序，scan 相邻的谱图会落入相邻的 fold，scan 号通常与色谱梯度、采集顺序相关，可能引入系统偏差
+  // 训练集和测试集的谱图在时间上分布不均
+  // hash 打散 scan，让 fold 分配看起来随机，但保证同谱图相邻，这是随机化与分组的这种
   std::sort(scores_.begin(), scores_.end(), OrderScanHash());
 
+  // 没有 PSM，无法划分
   if (scores_.size() == 0) {
     ostringstream oss;
     oss << "Error: no scored PSMs were provided.\n";
@@ -242,9 +255,10 @@ void Scores::createXvalSetsBySpectrum(std::vector<Scores>& train,
     }
   }
 
+  // 分配循环
   // put scores into the folds; choose a fold (at random) and change it only
   // when scores from a new spectra are encountered
-  unsigned int previousSpectrum = scores_.begin()->pPSM->scan;
+  unsigned int previousSpectrum = scores_.begin()->pPSM->scan; // 上一个 PSM 的 scan
   size_t randIndex = PseudoRandom::lcg_rand() % xval_fold;
   for (std::vector<ScoreHolder>::iterator it = scores_.begin();
        it != scores_.end(); ++it) {
@@ -253,30 +267,35 @@ void Scores::createXvalSetsBySpectrum(std::vector<Scores>& train,
 
     // if current score is from a different spectra than the one encountered in
     // the previous iteration, choose new fold
-    if (previousSpectrum != curScan) {
+    if (previousSpectrum != curScan) { // 遇到新 scan 时（谱图变化），重新随机选一个 fold
       randIndex = PseudoRandom::lcg_rand() % xval_fold;
       // allow only indexes of folds that are non-full
-      while (remain[randIndex] <= 0) {
+      while (remain[randIndex] <= 0) { // remain的作用：如果随机到的 fold 已满，就换一个
         randIndex = PseudoRandom::lcg_rand() % xval_fold;
       }
     }
 
     // if we use multiple folds with RESET, assign 1-decoyFractionTraining as
     // pseudo targets.
-    if (xval_fold > 1u && decoyFractionTraining < 1.0 &&
-        sh.label == LabelType::DECOY &&
-        PseudoRandom::lcg_uniform_rand() > decoyFractionTraining) {
+    // 满足以下条件，执行 RESET 的 pseudo-target 转换
+    // RESET 算法的核心思想是让一部分 decoy "伪装"成 target 进入训练集，平衡训练集的类分布
+    if (xval_fold > 1u // 多折模式
+      && decoyFractionTraining < 1.0 // 不是标准模式
+      && sh.label == LabelType::DECOY // 当前是 decoy
+      && PseudoRandom::lcg_uniform_rand() > decoyFractionTraining) { // 以 1-decoyFractionTraining 的概率转换，大约 50% 的 decoy 转换为 pesudo-target
       // From Algorithm S3 of the percolator-RESET supplementary material
       // decoyFractionTraining - the probability of assigning a decoy to the
       // training set
       sh.label = LabelType::PSEUDO_TARGET;
     }
 
+    // 分配 train/test
     // insert
     for (unsigned int i = 0; i < xval_fold; ++i) {
-      if (i == randIndex) {
+      if (i == randIndex) { // 一个进入 test
         test[i].addScoreHolder(sh);
       }
+      // xval_fold-1 个进入 train
       if (i != randIndex || xval_fold == 1) {
         train[i].addScoreHolder(sh);
       }
@@ -320,6 +339,10 @@ void Scores::createXvalSetsBySpectrum(std::vector<Scores>& train,
   }
 }
 
+/**
+ * ⭐2026-11-11
+ * 重新计算该数据集中包含的 target 和 decoy PSM 数量
+ */
 void Scores::recalculateSizes() {
   totalNumberOfTargets_ = 0;
   totalNumberOfDecoys_ = 0;
@@ -334,6 +357,11 @@ void Scores::recalculateSizes() {
   targetDecoySizeRatio_ = totalNumberOfTargets_ / (double)totalNumberOfDecoys_;
 }
 
+/**
+ * ⭐2026-11-11
+ * 把指定类别（target 或 decoy）的 PSM 特征数据，从池中"分散"的原始位置，原地交换到"连续"的新位置，从而在后续 SVM 训练时提升 CPU 缓存命中率。
+ * 这是 C++ 版 Percolator 为 FeatureMemoryPool 设计的内存布局优化。在 Java 中特征以 double[] 直接保存在 PSMDescription 里，每个数组本身就是连续的，这个方法在 Java 版中不存在，也不需要。
+ */
 void Scores::reorderFeatureRows(
     FeatureMemoryPool& featurePool,
     bool isTarget,
@@ -420,6 +448,7 @@ void Scores::normalizeScores(double fdr, std::vector<double>& weights) {
 }
 
 /**
+ * ⭐2026-11-11
  * Calculates the SVM cost/score of each PSM and sorts them
  * and calculate q values for each PSM
  * @param w normal vector used for SVM cost
@@ -434,17 +463,27 @@ int Scores::calcScoresAndQvals(std::vector<double>& w,
 }
 
 /**
+ * ⭐2026-11-11
+ * 计算 SVM 决策值 (wx+b)，按分数降序排序，可选地打印 top10, bottom 10 的调试信息。
+ * 
+ * 这是 SVM 训练完成后的打分阶段：w 是训练好的权重向量，方法用它给所有 PSM 打分，为后续 q-value 
+ * 计算准备有序输入。
+ * 
  * Calculates the SVM cost/score of each PSM and sorts them
+ * 
  * @param w normal vector used for SVM cost
  * @param fdr FDR threshold specified by user (default 0.01)
  * @return 0 on successfull execution
  */
 int Scores::calcScores(std::vector<double>& w) {
+
+  // 1. 计算每个 PSM 的分数
   std::size_t ix;
   std::vector<ScoreHolder>::iterator scoreIt = scores_.begin();
   for (; scoreIt != scores_.end(); ++scoreIt) {
     scoreIt->score = calcScore(scoreIt->pPSM->features, w);
   }
+  // 2. 降序排序
   sort(scores_.begin(), scores_.end(), greater<ScoreHolder>());
   if (VERB > 3) {
     if (scores_.size() >= 10) {
@@ -827,6 +866,9 @@ unsigned Scores::getQvaluesBelowLevel(double level) {
   return hits;
 }
 
+/**
+ * 是否使用 pi0⭐2026-11-11
+ */
 void Scores::setUsePi0(bool usePi0) {
   usePi0_ = usePi0;
 }

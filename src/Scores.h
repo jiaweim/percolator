@@ -113,6 +113,9 @@ class Scores {
   inline void addScoreHolder(const ScoreHolder& sh) { scores_.push_back(sh); }
   inline void reserve(size_t n) { scores_.reserve(n); }
 
+  /**
+   * ⭐2026-11-11
+   */
   inline void setNullTargetWinProb(const double nullTargetWinProb) {
     nullTargetWinProb_ = nullTargetWinProb;
   }

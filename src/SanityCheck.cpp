@@ -88,6 +88,16 @@ void SanityCheck::checkAndSetDefaultDir() {
   }
 }
 
+/**
+ * ⭐2026-11-11
+ * 交叉验证方向初始化的总调用方法。
+ * @param testset 测试集，每个 fold 一个
+ * @param trainset 训练集，每个 fold 一个
+ * @param pNorm 归一化器
+ * @param w 输出：每个 fold 的权重向量
+ * @param test_fdr 最终评估用的 FDR
+ * @param initial_train_fdr 方向搜索用的 FDR
+ */
 int SanityCheck::getInitDirection(vector<Scores>& testset,
                                   vector<Scores>& trainset,
                                   const Normalizer* pNorm,
@@ -99,35 +109,44 @@ int SanityCheck::getInitDirection(vector<Scores>& testset,
   test_fdr_= test_fdr;
   initial_train_fdr_ = initial_train_fdr;
   if (initWeightFN.size() > 0) {
+    // ww 暂存文件中的原始权重
     vector<double> ww(FeatureNames::getNumFeatures() + 1);
     ifstream weightStream(initWeightFN.data(), ios::in);
     if (weightStream.is_open()) {
+      // 读取原始权重
       readWeights(weightStream, ww);
       weightStream.close();
-      assert(pNorm);
-      pNorm->normalizeweight(ww, w[0]);
-      for (size_t set = 1; set < w.size(); ++set) {
+      assert(pNorm); // 从文件读取权重时才需要
+      pNorm->normalizeweight(ww, w[0]); // 将原始空间的 ww 映射到归一化空间，写入 w[0]
+      for (size_t set = 1; set < w.size(); ++set) { // 将权重复制到所有 folds
         copy(w[0].begin(), w[0].end(), w[set].begin());
       }
-    } else {
+    } else { // 读取权重文件出错
       std::cerr << "WARNING: Could not find weights input file " << initWeightFN
                 << ". Using default weights instead." << std::endl;
       getDefaultDirection(w);
     }
-  } else {
+  } else { // 完全没有提供初始权重
     getDefaultDirection(w);
   }
+
+  // 3. 在测试集上评估初始方向
   initPositives_ = 0;
   for (size_t set = 0; set < w.size(); ++set) {
+    // 对每个 fold,用 w[set] 给测试集打分，累加 q<test_fdr 的 target 数
     initPositives_ += (*pTestset_)[set].calcScoresAndQvals(w[set], test_fdr);
   }
   return initPositives_;
 }
 
+/**
+ * 为每个交叉验证 fold 初始化 SVM 的搜索方向向量 w。方向向量决定 SVM 从哪个初始权重开始迭代训练。⭐2026-11-11
+ */
 void SanityCheck::getDefaultDirection(vector<vector<double> >& w) {
     
   //If I have not been given a initial direction
   if (!initDefaultDir) {
+    // 3. 从数据学习
     //if the default_weights from pin.xml are not present
     if (default_weights.size() == 0) {
       // Set init direction to be the most discriminative direction
@@ -136,6 +155,7 @@ void SanityCheck::getDefaultDirection(vector<vector<double> >& w) {
         calcInitDirection(w[set], set);
       }
     } else {
+      // 2. 次优先级，从 pin 文件读取的权重
       // I want to assign the default vector that is present in the input file
       for (size_t set = 0; set < w.size(); ++set) {
         for (size_t ix = 0; ix < w[set].size(); ix++) {
@@ -147,6 +167,7 @@ void SanityCheck::getDefaultDirection(vector<vector<double> >& w) {
       }
     }
   } else {
+    // 1. 优先级最高，手动设置的初始权重方向
     for (size_t set = 0; set < w.size(); ++set) {
       for (size_t ix = 0; ix < w[set].size(); ix++) {
         w[set][ix] = 0;
@@ -156,6 +177,9 @@ void SanityCheck::getDefaultDirection(vector<vector<double> >& w) {
   }
 }
 
+/**
+ * ⭐2026-11-11
+ */
 void SanityCheck::calcInitDirection(vector<double>& wSet, size_t set) {
   (*pTrainset_)[set].getInitDirection(initial_train_fdr_, wSet);
 }
@@ -196,6 +220,9 @@ bool SanityCheck::validateDirection(vector<vector<double> >& w) {
   return true;
 }
 
+/**
+ * 从权重文件读取 SVM 的权重向量 w：包括特征权重和 bias (截距)⭐2026-11-11
+ */
 void SanityCheck::readWeights(istream& weightStream, vector<double>& w) {
   std::string line;
   // Find first line with weights, but skip this and get second line containing raw features
