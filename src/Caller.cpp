@@ -901,6 +901,16 @@ std::istream& Caller::getDataInStream(std::ifstream& fileStream) {
   return readStdIn_ ? std::cin : fileStream;
 }
 
+/**
+ * ⭐2026-11-12
+ * 1. 将数据读入 SetHandler
+ * 2. 归一化特征
+ * 3. 根据自动检测的搜索类型决定后处理决策（mix-max 还是 tdc）
+ * 4. 用左侧确定的策略填充 Scores
+ * @param dataStream 输入流
+ * @param setHandler 负责解析 PIN 格式，管理 DataSet
+ * @param allScores 输出，填充后的 PSM 分数集合
+ */
 bool Caller::loadAndNormalizeData(std::istream& dataStream,
                                   SetHandler& setHandler,
                                   Scores& allScores) {
@@ -1012,13 +1022,6 @@ bool Caller::loadAndNormalizeData(std::istream& dataStream,
 * 3. 计算 PSM 概率
 * 4. 计算肽段概率（可选）
 * 5. 计算蛋白概率（可选）
-* 
- * Executes the flow of the percolator process:
- * 1. reads in the input file
- * 2. trains the SVM
- * 3. calculate PSM probabilities
- * 4. (optional) calculate peptide probabilities
- * 5. (optional) calculate protein probabilities
  */
 int Caller::run() {
   timer.reset();
@@ -1026,20 +1029,22 @@ int Caller::run() {
   if (VERB > 0) {
     std::cerr << extendedGreeter();
   }
-// 计算线程数
+// 计算线程数，在多个 fold 的交叉验证时需要使用多线程
 #ifdef _OPENMP
   omp_set_num_threads(static_cast<int>(
       std::min((unsigned int)omp_get_max_threads(), numThreads_)));
 #endif
 
-  // 检查 PIN 格式与 decoy 前缀
-  /* Validate tab file and get decoy prefix */
+  // 2. 检查 PIN 格式与 decoy 前缀
   TabFileValidator tabFileValidator;
+  // 检查文件首行是否包含 \t，且如果 protEstimatorDecoyPrefix_ 为 "auto"，从第一个文件推断 decoy 前缀
+  // 检测完成后：protEstimatorDecoyPrefix_ 变为真实的 decoyProteinPrefix
   if (!tabFileValidator.validateTabFiles(inputFNs_,
                                          protEstimatorDecoyPrefix_)) {
     return 0;
   }
 
+  // 3. 处理单文件/多文件
   if (inputFNs_.size() == 1) {
     inputFN_ = inputFNs_.at(0);
   } else if (inputFNs_.size() > 1) { // 如果有多个 PIN 文件，拼接在一起
@@ -1048,17 +1053,23 @@ int Caller::run() {
     inputFN_ = validateTab.concatenateMultiplePINs(inputFNs_);
   }
 
+  // 4. 创建核心容器
   int success = 0;
   std::ifstream fileStream;
-  SetHandler setHandler(maxPSMs_);
+  SetHandler setHandler(maxPSMs_); // 数据容器+数据解析器
   setHandler.setDecoyPrefix(protEstimatorDecoyPrefix_);
-  Scores allScores(useMixMax_);
-  allScores.setOutputRT(outputRT_);
+  Scores allScores(useMixMax_); // 分数容器，useMixMax_ 决定计算 q-value 方法，这里只是初始值，在加载数据时会检测是否合适
+  allScores.setOutputRT(outputRT_); // 输出是否包含 RT 列
 
+  // 5. 加载、归一化数据
+  // 解析 PIN，构建 target/decoy 两个 Dataset，检测搜库方式
+  // 归一化特征
+  // 这里面会根据数据和用户选项修改 useMixMax_
   if (!loadAndNormalizeData(getDataInStream(fileStream),
                             setHandler, allScores))
     exit(EXIT_FAILURE);
 
+    // 6. RESET 分支：默认关闭
   double decoyFractionTraining = 1.0;
   unsigned int numFolds = 3u;
   if (useResetAlgorithm_) { // 默认 FALSE
@@ -1108,6 +1119,7 @@ int Caller::run() {
     // - apply decoy factor in PosteriorEstimator::estimatePEP
   }
 
+  // 7. 构造 CrossValidation
   // 标准 CV
   CrossValidation crossValidation(
       quickValidation_, reportEachIteration_, testFdr_, selectionFdr_,
@@ -1115,6 +1127,7 @@ int Caller::run() {
       useMixMax_, nestedXvalBins_, trainBestPositive_, numThreads_,
       skipNormalizeScores_, decoyFractionTraining, numFolds);
 
+  // 8. 准备交叉验证状态
   int firstNumberOfPositives = crossValidation.preIterationSetup(
       allScores, pCheck_, pNorm_, setHandler.getFeaturePool());
 
@@ -1123,6 +1136,7 @@ int Caller::run() {
          << testFdr_ << " in initial direction" << endl;
   }
 
+  //9. 计时与日志
   timer.stop();
   if (VERB > 1)
     cerr << "Reading in data and feature calculation took "
@@ -1130,31 +1144,50 @@ int Caller::run() {
          << timer.getWallTimeStr() << " seconds wall clock time." << endl;
   timer.reset();
 
+  // 10. 可选的特征输出
   if (tabOutputFN_.length() > 0) {
+    // 把计算的特征以 PIN 格式写回文件，供用户检查
+    // 此时特征已经归一化，可以检查归一化是否正确
     setHandler.writeTab(tabOutputFN_, pCheck_);
   }
 
-  // Do the SVM training
+  // 11. SVM 训练，耗时步骤
+  // 每轮迭代
+  // 对每个 fold，生成正负训练集，训练 SVM
+  // 对每个候选 Cpos/Cfrac：训练、评估、选最优
+  // 更新 allScores 的分数和 q-value
+  // 最终得到所有 fold 的权重向量
+  // 训练完成后，需要将权重从归一化空间映射回原始空间，因此需要 pNorm_
   crossValidation.train(pNorm_);
 
+  // 12. 后处理
+  // 把各个 fold 的测试结果合并到 allScores
   // Calculate the final SVM scores and clean up structures
   crossValidation.postIterationProcessing(allScores, pCheck_);
 
+  // 13. 可选的权重输出
   if (weightOutputFN_.size() > 0) {
     ofstream weightStream(weightOutputFN_.c_str(), ios::out);
     crossValidation.printAllWeights(weightStream, pNorm_);
     weightStream.close();
   }
 
+  // 14. 子集训练模式的全量打分
   if (setHandler.getMaxPSMs() > 0u) {
+    // 大数据集优化：只用前 N 个 PSM 训练，然后用学到的权重给所有 PSM 打分。
     if (VERB > 0) {
       cerr << "Scoring full list of PSMs with trained SVMs." << endl;
     }
+    // 把各 fold 的权重映射回原始空间并取平均，得到一个权重向量。
     std::vector<double> rawWeights;
     crossValidation.getAvgWeights(rawWeights, pNorm_);
+
+    // 清空 Dataset 和特征名
     setHandler.reset();
+    // 清空分数
     allScores.reset();
 
+    // 回到文件开头，重新读取全部数据
     fileStream.clear();
     fileStream.seekg(0, ios::beg);
     success = setHandler.readAndScoreTab(fileStream, rawWeights, allScores,
@@ -1177,11 +1210,13 @@ int Caller::run() {
            << " positives and " << allScores.negSize() << " negatives." << endl;
     }
 
+    // 重新计算 q-value
     allScores.postMergeStep();
     allScores.calcQvals(selectionFdr_);
     allScores.normalizeScores(selectionFdr_, rawWeights);
   }
 
+  // 15. 输出结果
   calcAndOutputResult(allScores);
   return 1;
 }

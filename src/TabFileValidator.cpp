@@ -50,6 +50,7 @@ bool TabFileValidator::isTabFiles(std::vector<std::string> fileNames) {
 }
 
 /**
+ * ⭐2026-11-12
  * 获取 decoy 蛋白质的前缀，只检测第一个文件
  * 
  * @param fileNames 文件名列表
@@ -133,15 +134,24 @@ std::string TabFileValidator::getLongestCommonPrefix(std::vector<std::string> st
   return "";
 }
 
+/**
+ * ⭐2026-11-12
+ * 从 PIN 文件中采样 decoy PSM 的蛋白质 ID，求它们的公共前缀，再截断到第一个西华县，从而自动推断 decoy 蛋白质
+ * 的前缀。
+ * @param fileName 文件路径
+ * @param proteinIndex 蛋白质 column index
+ * @param labelIndex label index
+ */
 std::string TabFileValidator::findDecoyPrefix(std::string fileName, int proteinIndex, int labelIndex) {
   std::ifstream file(fileName.c_str());
 
   if (!file.is_open()) return "error";
 
-  /* Skip header */
+  // 跳过 header
   std::string nextRow;
   getline(file, nextRow);
 
+  // 收集 decoy 蛋白质 ID
   std::vector<std::string> proteinNames;
   while (getline(file, nextRow)) {
     TabReader readerRow(nextRow);
@@ -159,13 +169,17 @@ std::string TabFileValidator::findDecoyPrefix(std::string fileName, int proteinI
     }
   }
 
-  /* Randomly sample 10% of the protein identifiers */
+  // 随机采样 10%
   auto rng = std::default_random_engine {};
+  // 用 rng 打乱
   std::shuffle(std::begin(proteinNames), std::end(proteinNames), rng);
   int numElements = ceil(0.1 * proteinNames.size());
+  // 保留 10%
   proteinNames.resize(numElements);
   
+  // 计算最长公共前缀
   std::string prefix = getLongestCommonPrefix(proteinNames);
+  // 截断到第一个下划线
   size_t loc = prefix.find("_");
   if (loc != std::string::npos) {
     prefix = prefix.substr(0, loc + 1);
@@ -178,6 +192,9 @@ std::string TabFileValidator::findDecoyPrefix(std::string fileName, int proteinI
   return prefix;
 }
 
+/**
+ * ⭐2026-11-12
+ */
 std::string TabFileValidator::detectDecoyPrefix(std::string fileName) {
   if (VERB > 0) {
     std::cerr << "Finding protein decoy prefix for " << fileName << std::endl;
@@ -196,6 +213,9 @@ std::string TabFileValidator::detectDecoyPrefix(std::string fileName) {
   return findDecoyPrefix(fileName, proteinIndex, labelIndex);
 }
 
+/**
+ * ⭐2026-11-12
+ */
 bool TabFileValidator::validateTabFiles(std::vector<std::string> files, std::string& decoyPrefix) {
   if (!isTabFiles(files)) {
     return false;

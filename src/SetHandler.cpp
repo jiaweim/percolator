@@ -1,5 +1,7 @@
 #include "SetHandler.h"
 
+// ⭐2026-11-12
+
 /**
  * 构造函数
  * maxPSMs_ == 0：读取全部 PSM。
@@ -15,7 +17,8 @@ SetHandler::~SetHandler() {
 }
 
 /**
- * 遍历 subsets，删除所有 Dataset⭐2026-11-09
+ * ⭐2026-11-09
+ * 遍历 subsets，删除所有 Dataset
  */
 void SetHandler::reset() {
   for (unsigned int ix = 0; ix < subsets_.size(); ix++) {
@@ -30,7 +33,8 @@ void SetHandler::reset() {
 }
 
 /**
- * 查找标签对应的数据集。⭐2026-11-09
+ * ⭐2026-11-09
+ * 查找标签对应的数据集。
  * 
  * Gets the vector index of the DataSet matching the label
  * @param label DataSet label
@@ -46,7 +50,8 @@ unsigned int SetHandler::getSubsetIndexFromLabel(LabelType label) {
 }
 
 /**
- * 添加一个数据集。⭐2026-11-09
+ * ⭐2026-11-09，2026-11-12
+ * 添加一个数据集。
  * Insert DataSet object into this SetHandler
  * @param ds pointer to DataSet to be inserted
  */
@@ -55,7 +60,8 @@ void SetHandler::push_back_dataset( DataSet * ds ) {
 }
 
 /**
- * 找到对应数据集后，把其中的 PSM 转换为 ScoreHolder 对象，加入 scores。⭐2026-11-09
+ * ⭐2026-11-09
+ * 找到对应数据集后，把其中的 PSM 转换为 ScoreHolder 对象，加入 scores。
  * @param scores ScoreHolder 对象列表
  */
 void SetHandler::populateScoresWithPSMs(vector<ScoreHolder> &scores, LabelType label) {
@@ -63,7 +69,8 @@ void SetHandler::populateScoresWithPSMs(vector<ScoreHolder> &scores, LabelType l
 }
 
 /**
- * 特征归一化。⭐2026-11-06
+ * ⭐2026-11-06，2026-11-12
+ * 特征归一化。
  */
 void SetHandler::normalizeFeatures(Normalizer*& pNorm) {
   // 分别保存普通特征和保留时间特征指针
@@ -80,13 +87,17 @@ void SetHandler::normalizeFeatures(Normalizer*& pNorm) {
   pNorm->normalizeSet(featuresV, rtFeaturesV);
 }
 
+/**
+ * ⭐2026-11-12
+ */
 LabelType const SetHandler::getLabel(int setPos) {
   assert(setPos >= 0 && setPos < (signed int)subsets_.size());
   return subsets_[static_cast<std::size_t>(setPos)]->getLabel();
 }
 
 /**
- * 读取 pin 文件入口⭐2026-11-05
+ * ⭐2026-11-05，2026-11-12
+ * 读取 pin 文件入口
  */
 int SetHandler::readTab(istream& dataStream, SanityCheck*& pCheck) {
   std::vector<double> noWeights; // 空权重列表
@@ -95,7 +106,8 @@ int SetHandler::readTab(istream& dataStream, SanityCheck*& pCheck) {
 }
 
 /**
- * 从 headerLine 中解析可选字段，返回可选字段数量。⭐2026-11-05
+ * ⭐2026-11-05，2026-11-12
+ * 从 headerLine 中解析可选字段，返回可选字段数量。
  * @param headerLine 表头行
  */
 int SetHandler::getOptionalFields(const std::string& headerLine, 
@@ -132,7 +144,8 @@ int SetHandler::getOptionalFields(const std::string& headerLine,
 }
 
 /**
- * 判断 PIN 第二行是否为 DefaultDirection 行。⭐2026-11-05
+ * ⭐2026-11-05，2026-11-12
+ * 判断 PIN 第二行是否为 DefaultDirection 行。
  * @param defaultDirectionLine PIN 第二行
  */
 bool SetHandler::isDefaultDirectionLine(const std::string& defaultDirectionLine) {
@@ -145,7 +158,8 @@ bool SetHandler::isDefaultDirectionLine(const std::string& defaultDirectionLine)
 }
 
 /**
- * 通过第一行 PSM 计算特征数量。⭐2026-11-05
+ * ⭐2026-11-05，2026-11-12
+ * 通过第一行 PSM 计算特征数量。
  * @param line 第一行 PSM
  * @param optionalFieldCount 可选字段数量
  */
@@ -166,7 +180,8 @@ int SetHandler::getNumFeatures(const std::string& line, int optionalFieldCount) 
 }
 
 /**
- * 从表头行中解析特征名称。⭐2026-11-05
+ * ⭐2026-11-05，2026-11-12
+ * 从表头行中解析特征名称。
  * @param headerLine 表头行
  * @param numFeatures 特征数量
  * @param optionalFieldCount 可选字段数量
@@ -195,7 +210,8 @@ void SetHandler::getFeatureNames(const std::string& headerLine,
 }
 
 /**
- * 从 DefaultDirection 获取每个特征的初始权重⭐2026-11-05
+ * ⭐2026-11-05，2026-11-12
+ * 从 DefaultDirection 获取每个特征的初始权重
  * @param defaultDirectionLine DefaultDirection 行
  * @param optionalFieldCount 可选字段数量
  * @param init_values 初始值容器
@@ -224,6 +240,10 @@ bool SetHandler::getInitValues(const std::string& defaultDirectionLine,
   return hasDefaultValues;
 }
 
+/**
+ * ⭐2026-11-12
+ * 输出数据集
+ */
 void SetHandler::writeTab(const string& dataFN, SanityCheck * pCheck) {
   ofstream dataStream(dataFN.data(), ios::out);
   dataStream << "SpecId\tLabel\tScanNr\tExpMass\tCalcMass\t";
@@ -247,6 +267,7 @@ void SetHandler::writeTab(const string& dataFN, SanityCheck * pCheck) {
 }
 
 /**
+ * ⭐2026-11-12
  * 解析和注册 PSM
  * @param dataStream 输入流
  * @param psmLine 第一套 PSM 行
@@ -366,6 +387,10 @@ void SetHandler::readPSMs(istream& dataStream, std::string& psmLine,
   push_back_dataset(decoySet);
 }
 
+/**
+ * ⭐2026-11-12
+ * 将采样序列中的 PSM 按标签分发到 target 和 decoy Dataset.
+ */
 void SetHandler::addQueueToSets(
     std::priority_queue<PSMDescriptionPriority>& subsetPSMs,
     DataSet* targetSet, DataSet* decoySet) {
@@ -385,9 +410,9 @@ void SetHandler::addQueueToSets(
   }
 }
 
-
 /**
- * 从 PSM 行中解析 ScanId，返回 ScanId 对象。⭐2026-11-05
+ * ⭐2026-11-05, 2026-11-12
+ * 从 PSM 行中解析 ScanId，返回 ScanId 对象。
  * @param psmLine PSM 行
  * @param label 输出参数，PSM 标签
  * @param optionalFields 可选字段列表
@@ -489,6 +514,7 @@ ScanId SetHandler::getScanId(const std::string& psmLine, int& label,
 }
 
 /**
+ * ⭐2026-11-12
  * 读取 tab 文件实现
  * @param dataStream 输入数据流
  * @param rawWeights 已有模型权重，非空时，读取 PSM 时直接计算分数，空时，读取 PSM 并进行校验。暂时不需要
@@ -592,7 +618,8 @@ int SetHandler::readAndScoreTab(istream& dataStream,
 }
 
 /**
- * 已有权重，读取 PSM 并打分⭐2026-11-05
+ * ⭐2026-11-05, 2026-11-12
+ * 已有权重，读取 PSM 并打分
  */
 void SetHandler::readAndScorePSMs(istream& dataStream, std::string& psmLine, 
     bool hasInitialValueRow, std::vector<OptionalField>& optionalFields, 
@@ -615,6 +642,10 @@ void SetHandler::readAndScorePSMs(istream& dataStream, std::string& psmLine,
   }
 }
 
+/**
+ * ⭐2026-11-12
+ * 删除空格
+ */
 std::string& SetHandler::rtrim(std::string &s) {
   s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) { return !std::isspace(ch); }).base(), s.end());
   return s;

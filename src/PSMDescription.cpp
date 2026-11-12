@@ -1,25 +1,9 @@
-/*******************************************************************************
- Copyright 2006-2012 Lukas Käll <lukas.kall@scilifelab.se>
-
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-
- http://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
-
- *******************************************************************************/
 #include "PSMDescription.h"
 #include <assert.h>
 #include <cmath>
 #include "Globals.h"
 
-// ⭐2026-11-02
+// ⭐2026-11-02，2026-11-12
 
 /**
  * 构造函数。
@@ -89,6 +73,10 @@ std::string PSMDescription::removePTMs(const string& peptide) {
     return peptide.substr(0, 1) + std::string(".") + peptideSequence + std::string(".") + peptide.substr(peptide.size() - 1, 1);
 }
 
+/**
+ * ⭐2026-11-12
+ * 输出蛋白质
+ */
 void PSMDescription::printProteins(std::ostream& out) {
     std::vector<std::string>::const_iterator it = proteinIds.begin();
     if (it != proteinIds.end()) {

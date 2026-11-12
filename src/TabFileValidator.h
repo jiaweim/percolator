@@ -10,7 +10,7 @@
 #include "TabReader.h"
 
 /**
- * TabFileValidator 类用于验证 PIN 文件的格式和内容⭐
+ * TabFileValidator 类用于验证 PIN 文件的格式和内容⭐2026-11-12
  */
 class TabFileValidator {
   public:

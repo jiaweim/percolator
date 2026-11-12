@@ -382,6 +382,8 @@ int CrossValidation::doStep(const Normalizer* pNorm, double selectionFdr) {
 }
 
 /**
+ * 网格搜索一个步骤。
+ * 
  * Train SVM over a single (cpos, cneg) pair
  * @param cpCnFold contains cpos, cneg pair and SVM learned weights
  * @param pOptions options for the SVM algorithm

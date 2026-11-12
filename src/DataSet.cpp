@@ -1,6 +1,7 @@
 #include "DataSet.h"
 #include <cmath>
 
+// ⭐2026-11-12
 /**
  * static，PSM 特征名称表，所有 DataSet 共享同一个特征名称表
  */
@@ -27,6 +28,7 @@ DataSet::~DataSet() {
 }
 
 /**
+ * ⭐2026-11-12
  * 将当前数据写入 Tab 文件
  */
 bool DataSet::writeTabData(ofstream& out) {
@@ -55,6 +57,7 @@ bool DataSet::writeTabData(ofstream& out) {
 }
 
 /**
+ * ⭐2026-11-12
  * 将全部特征输出到 cerr，用于调试。格式为 "特征索引:特征值"，每个 PSM 一行。
  */
 void DataSet::print_features() {
@@ -67,6 +70,7 @@ void DataSet::print_features() {
 }
 
 /**
+ * ⭐2026-11-12
  * 打印前 10 个 PSM 的特征，用于调试。格式为 "特征索引:特征值"，每个 PSM 一行。
  */
 void DataSet::print_10features() {
@@ -80,7 +84,7 @@ void DataSet::print_10features() {
 }
 
 /**
- * ⭐2026-11-09
+ * ⭐2026-11-09，2026-11-12
  * 将数据集的 PSM 转换为训练或排序所需的 ScoreHolder 对象列表。
  * Dataset 负责提供 PSM，ScoreHolder 负责保存打分和统计结果。
  */
@@ -93,7 +97,7 @@ void DataSet::fillScores(std::vector<ScoreHolder>& scores) {
 }
 
 /**
- * ⭐2026-11-09
+ * ⭐2026-11-09，2026-11-12
  * 导出特征数组指针列表，用于训练或排序。每个 PSM 的特征数组由 FeatureMemoryPool 管理。
  */
 void DataSet::fillFeatures(std::vector<double*>& features) {
@@ -105,6 +109,7 @@ void DataSet::fillFeatures(std::vector<double*>& features) {
 }
 
 /**
+ * ⭐2026-11-12
  * 从 PIN 读取一行，得到 PSMDescription 对象，并注册到 DataSet
  * 
  * Read in psm details from a string out of tab delimited file
@@ -122,6 +127,7 @@ void DataSet::readPsm(const std::string& line, const unsigned int lineNr,
 }
 
 /**
+ * ⭐2026-11-12
  * 最重要的方法，用于读取 PIN 文件中的一行，解析出 PSMDescription 对象，并返回标签类型
  * 
  * @param line 待解析 tab 行
@@ -303,6 +309,7 @@ LabelType DataSet::readPsm(const std::string& line, const unsigned int lineNr,
 }
 
 /**
+ * ⭐2026-11-12
  * 将 PSM 注册到数据集中
  * @param myPsm PSMDescription 对象指针
  */
