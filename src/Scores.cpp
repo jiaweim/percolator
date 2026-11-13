@@ -526,7 +526,8 @@ int Scores::calcQvals(double fdr, bool skipDecoysPlusOne) {
 }
 
 /**
- * 计算 q-value ⭐2026-11-10
+ * ⭐2026-11-10
+ * 计算 q-value 
  */
 int Scores::calcQvals(double fdr, bool skipDecoysPlusOne,
                       std::vector<pair<double, bool> >& combined) {

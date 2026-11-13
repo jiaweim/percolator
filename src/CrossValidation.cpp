@@ -113,7 +113,7 @@ int CrossValidation::preIterationSetup(Scores& fullset,
 }
 
 /**
- * ⭐2026-11-11
+ * ⭐2026-11-11，2026-11-13
  * 为 SVM 的超参数搜索准备候选组合：
  * 1. 确定 Cpos 的候选值
  * 2. 确定 cfrac=Cneg/Cpos 的候选值
@@ -286,29 +286,42 @@ void CrossValidation::train(const Normalizer* pNorm) {
 }
 
 /**
- * 最核心的函数。
+ * 单轮执行。train() 会循环调用它 niter_ 次，每次传入不同 selectionFdr，功能包括：
+ * - 用当前权重重新挑选训练正样本
+ * - 为每个外层 fold 构建嵌套 CV
+ * - 并行训练所有 (Cpos, Cfrac) 组合 → 
+ * - 在验证集上选参并合并 → 
+ * - 返回估计的全数据集真阳性数。
  * Executes a cross validation step
  * @param w_ list of the bins' normal vectors (in linear algebra sense) of the
  *        hyperplane from SVM
+ * @param pNorm 没有用到
+ * @param selectionFdr 挑选训练正样本的 FDR 阈值
  * @return Estimation of number of true positives
  */
 int CrossValidation::doStep(const Normalizer* pNorm, double selectionFdr) {
   // Setup 设置 SVM 参数 L2-SVM，控制收敛和迭代
+  // 配置 L2_SVM_MFN 求解器
   options pOptions;
-  pOptions.lambda = 1.0;
+  // 下面两个都是正则化选项
+  pOptions.lambda = 1.0; 
   pOptions.lambda_u = 1.0;
+  // 控制收敛精度
   pOptions.epsilon = EPSILON;
+  // 共轭梯度和 MFN 内迭代的最大次数
   pOptions.cgitermax = CGITERMAX;
   pOptions.mfnitermax = MFNITERMAX;
   int estTruePos = 0;
 
-  // 用当前权重给训练集打分
+  // 用当前权重给训练集打分，重新选择训练正样本
   // 按 selectionFdr 选出候选 positive
   // 这决定下一轮训练用哪些样本做正类训练
+  // 之后每轮训练用上一轮训练出的权重重新选，逐步逼近真实正样本集合，属于 bootstrapping 过程
   // for determining an appropriate positive training set, the decoys+1 in the
   // FDR estimates is too restrictive for small datasets
   bool skipDecoysPlusOne = true;
   for (std::size_t set = 0; set < numFolds_; ++set) {
+    // 用上一轮学到的权重给训练集重新打分，并按 selectionFdr 重新划分哪些 PSM 算正样本
     trainScores_[set].calcScoresAndQvals(weights_[set], selectionFdr,
                                          skipDecoysPlusOne);
   }
@@ -326,36 +339,45 @@ int CrossValidation::doStep(const Normalizer* pNorm, double selectionFdr) {
   //   cpos,cneg pair per nested CV fold -has a much smaller memory footprint by
   //   fixing memory leaks in L2_SVM_MFN and more efficient validation of the
   //   learned SVM parameters
-  // ////
 
   // 创建 nested CV 的训练/测试集
   // Create SVM input data for parallelization
   std::vector<AlgIn*> svmInputsVec;
   std::vector<std::vector<Scores> > nestedTestScoresVec;
-  for (std::size_t set = 0; set < numFolds_; ++set) {
+  for (std::size_t set = 0; set < numFolds_; ++set) { // 外层 CV
     std::vector<Scores> nestedTrainScores(nestedXvalBins_, usePi0_),
         nestedTestScores(nestedXvalBins_, usePi0_);
+
+    // 真正的嵌套 CV
     if (nestedXvalBins_ > 1) {
       FeatureMemoryPool featurePool;
-      //  nestedXvalBins_ > 1 时执行 nested cross-validation
+      // 按谱图划分，保证同一张谱图的 target 和 decoy 不会被分到不同 fold，避免数据泄露
       trainScores_[set].createXvalSetsBySpectrum(
           nestedTrainScores, nestedTestScores, nestedXvalBins_, featurePool);
     } else {
+      // 在训练集上自评估
       // sub-optimal cross validation
-      nestedTrainScores[0] = trainScores_[set];
+      nestedTrainScores[0] = trainScores_[set]; 
       nestedTestScores[0] = trainScores_[set];
     }
+
+    // 收集每个 fold 的数据集，稍后传入 mergeCpCnPairs 用于选参数
     nestedTestScoresVec.push_back(nestedTestScores);
     // Set SVM input data for L2-SVM-MFN
-    for (std::size_t nestedFold = 0; nestedFold < nestedXvalBins_;
-         ++nestedFold) {
+    for (std::size_t nestedFold = 0; nestedFold < nestedXvalBins_; ++nestedFold) {
+
+      // 将 Scores 的数据填充到 AlgIn
       AlgIn* svmInput = svmInputs_[set * nestedXvalBins_ + nestedFold];
       if ((VERB > 2) && (nestedFold == 0)) {
         cerr << "Split " << set + 1 << ": Training with " << svmInput->positives
              << " positives and " << svmInput->negatives << " negatives"
              << std::endl;
       }
+
+      // 填充 decoy 样本，1.0 表示不采用
       nestedTrainScores[nestedFold].generateNegativeTrainingSet(*svmInput, 1.0);
+
+      // 按 selectionFdr 筛选 target 样本
       nestedTrainScores[nestedFold].generatePositiveTrainingSet(
           *svmInput, selectionFdr, 1.0, trainBestPositive_);
       if ((VERB > 2) && (nestedXvalBins_ > 1u)) {
@@ -367,6 +389,7 @@ int CrossValidation::doStep(const Normalizer* pNorm, double selectionFdr) {
     }
   }
 
+  // 下方并行训练所有 Cpos, Cfrac 组合
 #pragma omp parallel for schedule(dynamic, 1) ordered
   for (int pairIdx = 0; pairIdx < classWeightsPerFold_.size(); pairIdx++) {
     CandidateCposCfrac* cpCnFold = &classWeightsPerFold_[pairIdx];
@@ -382,55 +405,68 @@ int CrossValidation::doStep(const Normalizer* pNorm, double selectionFdr) {
 }
 
 /**
+ * ⭐2026-11-13
  * 网格搜索一个步骤。
  * 
  * Train SVM over a single (cpos, cneg) pair
- * @param cpCnFold contains cpos, cneg pair and SVM learned weights
- * @param pOptions options for the SVM algorithm
- * @param svmInput training data for this particular nested CV fold
+ * @param cpCnFold contains cpos, cneg pair and SVM learned weights, 负责输入参数，输出权重
+ * @param pOptions options for the SVM algorithm，SVM 求解器参数，在 doStep 里设置一次，此后所有 pair 共享
+ * @param svmInput training data for this particular nested CV fold，训练数据，只读取，不修改
  */
 void CrossValidation::trainCpCnPair(CandidateCposCfrac& cpCnFold,
                                     options& pOptions,
                                     AlgIn* svmInput) {
+  // 存储权重 numFeatures+1
   vector_double pWeights;
   pWeights.d = static_cast<int>(FeatureNames::getNumFeatures()) + 1;
   pWeights.vec = new double[pWeights.d];
 
+  // 读入两个超参数
   double cpos = cpCnFold.cpos;
   double cfrac = cpCnFold.cfrac;
 
-  // Create storage vector for SVM algorithm
-  vector_double Outputs;
+  // 分配输出向量
+  vector_double Outputs; // 每个训练样本的判别分数，长度等于训练样本总数
   size_t numInputs =
       static_cast<std::size_t>(svmInput->positives + svmInput->negatives);
   Outputs.vec = new double[numInputs];
   Outputs.d = static_cast<int>(numInputs);
 
+  // 调试输出
   if (VERB > 3)
     cerr << "- cross-validation with Cpos=" << cpos << ", Cneg=" << cfrac * cpos
          << endl;
+  // pWeights 清零
   for (int ix = 0; ix < pWeights.d; ix++) {
     pWeights.vec[ix] = 0;
   }
+  // Outputs 清零
   for (int ix = 0; ix < Outputs.d; ix++) {
     Outputs.vec[ix] = 0;
   }
 
-  // Call SVM algorithm (see ssl.cpp)
+  // 调用 SVM 求解器
   L2_SVM_MFN(*svmInput, pOptions, pWeights, Outputs, cpos, cfrac * cpos);
 
+  // 学完了，输出权重
   for (std::size_t i = FeatureNames::getNumFeatures() + 1; i--;) {
     cpCnFold.ww[i] = pWeights.vec[i];
   }
 }
 
 /**
+ * 1. Validate: 用 testFdr_ 在内层测试集上评估每个 (Cpos, Cfrac) 组合训练的 ww，得到该组合的 tp
+ * 2. Merge: 对每个外层 fold，把多个 nested fold 的结果合并，选择最优参数对，非嵌套时直接选 tp 最大的
+ * 3. Pairs: classWeightsPerFold_ 里所有 out-fold x inner-fold x Cpos x Cfrac
+ * 
  * Validate and merge weights learned per cpos,cneg pairs per nested CV fold per
  * CV fold
- * @param pWeights results vector from the SVM algorithm
+ * @param selectionFdr 重新训练挑选正样本的 FDR
  * @param pOptions options for the SVM algorithm
  * @param nestedTestScoresVec 2D vector, test sets per nested CV fold per CV
- * fold
+ * fold [set][nestedFold] 测试集
+ * @param cposCandidates Cpos 候选列表
+ * @param cfracCandidates Cfrac 候选列表
  */
 int CrossValidation::mergeCpCnPairs(
     double selectionFdr,
@@ -452,8 +488,11 @@ int CrossValidation::mergeCpCnPairs(
   //       scoring calculation in calcScores.
   unsigned int numCpCnPairsPerSet =
       static_cast<unsigned int>(classWeightsPerFold_.size() / numFolds_);
+
+      
 #pragma omp parallel for schedule(dynamic, 1) ordered
   for (int set = 0; set < static_cast<int>(numFolds_); ++set) {
+    // 评估每个 cpos, cfrac 组合
     unsigned int a = set * numCpCnPairsPerSet;
     unsigned int b = (set + 1) * numCpCnPairsPerSet;
     int tp = 0;
@@ -461,12 +500,15 @@ int CrossValidation::mergeCpCnPairs(
     std::map<std::pair<double, double>, int> intermediateResults;
     for (itCpCnPair = classWeightsPerFold_.begin() + a;
          itCpCnPair < classWeightsPerFold_.begin() + b; itCpCnPair++) {
+
+      // 内层测试集打分，用 q<testFdr_ 
       tp = nestedTestScoresVec[set][static_cast<std::size_t>(
                                         itCpCnPair->nestedSet)]
                .calcScoresAndQvals(itCpCnPair->ww, testFdr_, skipDecoysPlusOne);
       intermediateResults[std::pair<double,double>{itCpCnPair->cpos,
                                                    itCpCnPair->cfrac}] += tp;
       itCpCnPair->tp = tp;
+      // 如果不是嵌套循环，直接选参数
       if (nestedXvalBins_ <= 1) {
         if (tp >= bestTruePoses[set]) {
           bestTruePoses[set] = tp;
@@ -476,6 +518,8 @@ int CrossValidation::mergeCpCnPairs(
         }
       }
     }
+
+    // 嵌套时跨内层 fold 选参数
     if (nestedXvalBins_ > 1) {  // Check nestedXvalBins, which collapse
                                 // (accumulate) tp estimated for each CV bin
       // Now check which achieved best performance among cpos, cneg pairs

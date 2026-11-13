@@ -191,6 +191,15 @@ int CGLS(const AlgIn& data, const double lambda, const int cgitermax,
   return optimality;
 }
 
+/**
+ * 求解 L2 正则化
+ * @param data 训练数据
+ * @param Options 求解器选项
+ * @param Weights 权重输出
+ * @param Outputs 样本分数输出
+ * @param cpos 输入 Cpos
+ * @param cneg 输入 Cneg
+ */
 int L2_SVM_MFN(const AlgIn& data, options& Options,
                vector_double& Weights,
                vector_double& Outputs, double cpos, double cneg) {

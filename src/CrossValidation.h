@@ -17,9 +17,21 @@
 struct CandidateCposCfrac {
   double cpos;
   double cfrac;
-  unsigned int set;
+  /**
+   * fold 编号
+   */
+  unsigned int set; 
+  /**
+   * 内层 nested fold 编号
+   */
   int nestedSet;
+  /**
+   * 输出训练好的权重向量，长度为 numFeatures+1
+   */
   vector<double> ww;
+  /**
+   * true positives 数量
+   */
   int tp;
 };
 
@@ -146,7 +158,9 @@ class CrossValidation {
    * 嵌套交叉验证的 fold 数
    */
   unsigned int nestedXvalBins_;
-
+  /**
+   * 在每轮训练迭代中，强制要求每张谱图最多只有一个 PSM 被纳入正样本训练集
+   */
   bool trainBestPositive_;
   bool skipNormalizeScores_;
 
