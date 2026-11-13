@@ -214,7 +214,12 @@ void CrossValidation::train(const Normalizer* pNorm) {
   }
 
   // iterate
+  // 迭代循环
+  // foundPositivesOldOld 两轮前的结果
+  // foundPositivesOld 上一轮的结果
+  // foundPositives 这一轮的结果
   int foundPositivesOldOld = 0, foundPositivesOld = 0, foundPositives = 0;
+  // niter_ 默认为 10
   for (unsigned int i = 0; i < niter_; i++) {
     if (VERB > 1) {
       cerr << "Iteration " << i + 1 << ":\t";
@@ -274,6 +279,7 @@ void CrossValidation::train(const Normalizer* pNorm) {
   if (VERB == 3) {
     printAllRawWeightsColumns(cerr, pNorm);
   }
+  // 最终评估
   foundPositives = 0;
   for (size_t set = 0; set < numFolds_; ++set) {
     foundPositives +=
